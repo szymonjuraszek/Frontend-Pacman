@@ -1,13 +1,14 @@
 import {Injectable} from '@angular/core';
 import * as Stomp from 'stompjs';
 import * as SockJS from 'sockjs-client';
-import {Interface} from 'readline';
 
 @Injectable()
 export class WebsocketService {
-  private serverUrl = 'http://localhost:8080/socket';
+  private serverUrl = 'https://localhost:8080/socket';
   private stompClient;
   message = 'fd';
+  private activeGame: Game;
+  activeGames: Array<Game>;
 
   constructor() {
     console.log('Created service');
@@ -18,8 +19,16 @@ export class WebsocketService {
     this.stompClient = Stomp.over(ws);
 
     this.stompClient.connect({}, (frame) => {
-      this.stompClient.subscribe('/sth', (message) => {
-        console.log(message + 'cos tam');
+      this.stompClient.subscribe('/activeGames', (games) => {
+        console.log(games.body);
+        this.activeGames = games.body;
+        console.log(this.activeGames + ' aktywne gry')
+      });
+
+      this.stompClient.subscribe('/user', (message) => {
+        if (message.body) {
+          console.log(message.body);
+        }
       });
 
       this.stompClient.subscribe('/chat', (message) => {
@@ -53,6 +62,15 @@ export class WebsocketService {
   getStompClient() {
     return this.stompClient;
   }
+
+  isGameCreated() {
+    return this.stompClient.subscribe('/game', (message) => {
+      if (message.body) {
+        this.activeGame = message.body;
+
+      }
+    });
+  }
 }
 
 class Message {
@@ -63,5 +81,10 @@ class Message {
     this.x = x;
     this.y = y;
   }
+}
+
+class Game {
+  public id: number;
+  public active: boolean;
 }
 

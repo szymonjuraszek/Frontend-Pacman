@@ -2,6 +2,10 @@ import {Component, Injectable} from '@angular/core';
 import {WebsocketService} from '../../websocket/websocket.service';
 import Phaser from 'phaser';
 import * as SockJS from 'sockjs-client';
+import {HttpService} from '../../http/http.service';
+import {Game} from '../../model/game';
+import {JwksValidationHandler, OAuthService} from "angular-oauth2-oidc";
+import {authCodeFlowConfig} from "../../sso.config";
 
 @Component({
   selector: 'app-menu-scene',
@@ -14,15 +18,31 @@ import * as SockJS from 'sockjs-client';
 export class MenuSceneComponent extends Phaser.Scene {
   private startButton: Phaser.GameObjects.Image;
   private a = false;
+  games: Array<Game>;
 
-  constructor(private websocketService: WebsocketService) {
+  constructor(private websocketService: WebsocketService, private httpService: HttpService, private oauthService: OAuthService) {
     super({key: 'menu'});
   }
 
   create() {
+    // this.httpService.getAllGames().subscribe((games) => {
+    //   this.games = games;
+    // });
+
+    this.websocketService.initializeWebSocketConnection();
+    // this.oauthService.configure(authCodeFlowConfig);
+    // this.oauthService.tokenValidationHandler = new JwksValidationHandler();
+    // this.oauthService.loadDiscoveryDocument();
+    // this.oauthService.tokenEndpoint = 'http://localhost:8080/api/token';
+    // this.oauthService.tryLoginCodeFlow();
+
     console.log('MENU CREATE !!!');
 
     this.add.image(this.game.canvas.width / 2, this.game.canvas.height / 2, 'menu-background');
+    this.add.text(50, 50, 'Active games', {
+      font: "40px Arial",
+      fill: "#ff0044"
+    });
     this.startButton = this.add.image(this.game.canvas.width / 2, this.game.canvas.height / 2 + 100, 'start-button');
 
     this.startButton.setInteractive();
@@ -34,16 +54,8 @@ export class MenuSceneComponent extends Phaser.Scene {
       console.log('OUTAA HERE');
     });
     this.startButton.on('pointerup', () => {
-      this.websocketService.initializeWebSocketConnection();
-
-      setTimeout(() => {
-        console.log(this.websocketService.getStompClient())
-        if (!this.websocketService.getStompClient().connected) {
-          console.error('Not CONNECTED');
-        } else {
-          this.game.scene.stop('menu');
-          this.game.scene.start('main');
-        }} , 4000);
+      // this.websocketService.
+      // this.oauthService.initCodeFlow();
     });
 
   }
@@ -57,10 +69,6 @@ export class MenuSceneComponent extends Phaser.Scene {
 
   update() {
     console.log('SCENA MENU');
-    if (this.a === true) {
-      // this.websocketService.sendMessage('gfdgfdg');
-    }
-
   }
 
 }
