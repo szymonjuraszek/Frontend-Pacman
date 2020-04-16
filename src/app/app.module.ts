@@ -17,6 +17,7 @@ import { StorageServiceModule } from 'angular-webstorage-service';
 import {CookieService} from "ngx-cookie-service";
 import { LoginSceneComponent } from './scenes/login-scene/login-scene.component';
 import { HomeComponent } from './home/home.component';
+import {RoutingService} from "./routing/routing.service";
 
 @NgModule({
   declarations: [
@@ -34,7 +35,7 @@ import { HomeComponent } from './home/home.component';
     AppRoutingModule,
     OAuthModule.forRoot()
   ],
-  providers: [WebsocketService, HttpService,CookieService,
+  providers: [WebsocketService, HttpService,CookieService,RoutingService,
   {
     provide: HTTP_INTERCEPTORS,
     useClass: OAuth2Interceptor,

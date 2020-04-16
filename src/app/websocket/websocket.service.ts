@@ -1,17 +1,36 @@
 import {Injectable} from '@angular/core';
 import * as Stomp from 'stompjs';
 import * as SockJS from 'sockjs-client';
+import {Observable, Subject} from "rxjs";
 
 @Injectable()
 export class WebsocketService {
   private serverUrl = 'https://localhost:8080/socket';
   private stompClient;
-  message = 'fd';
-  private activeGame: Game;
-  activeGames: Array<Game>;
 
-  constructor() {
-    console.log('Created service');
+  message = 'fd';
+
+  private activeGames = new Subject<Array<Game>>();
+  private ifWaitingRoomEnable = new Subject<boolean>();
+  private nameOfCreatedGame: string;
+  myGame: Game;
+
+  constructor() {}
+
+  getActiveGames() {
+    return this.activeGames.asObservable();
+  }
+
+  getNameOfCreatedGame() {
+    return this.nameOfCreatedGame;
+  }
+
+  setNameOfCreatedGame(name: string) {
+    this.nameOfCreatedGame = name;
+  }
+
+  ifChangeSceneOnWaitingRoom() {
+    return this.ifWaitingRoomEnable.asObservable();
   }
 
   initializeWebSocketConnection() {
@@ -19,15 +38,24 @@ export class WebsocketService {
     this.stompClient = Stomp.over(ws);
 
     this.stompClient.connect({}, (frame) => {
-      this.stompClient.subscribe('/activeGames', (games) => {
-        console.log(games.body);
-        this.activeGames = games.body;
-        console.log(this.activeGames + ' aktywne gry')
+      this.stompClient.subscribe('/pacman/game', (createdGame) => {
+        let game: Game;
+        game = JSON.parse(createdGame.body);
+        if(game.name === this.nameOfCreatedGame) {
+          this.myGame = game;
+          console.error('nazwa: ' + this.myGame.name);
+          console.error('id: ' + this.myGame.id);
+          console.error('active: ' + this.myGame.active);
+          this.ifWaitingRoomEnable.next(true);
+        } else {
+          console.error('Nie dla ciebie wiadomosc');
+        }
       });
 
-      this.stompClient.subscribe('/user', (message) => {
+      this.stompClient.subscribe('/pacman/activeGames', (message) => {
+        console.error('active games');
         if (message.body) {
-          console.log(message.body);
+          this.activeGames.next(JSON.parse(message.body));
         }
       });
 
@@ -59,17 +87,19 @@ export class WebsocketService {
     this.stompClient.send('/app/send/sth', {}, message);
   }
 
-  getStompClient() {
-    return this.stompClient;
+  getGames() {
+    console.log('wysylam wiadomsoc do app/games')
+    this.stompClient.send('/app/games', {}, 'fdsfffff');
   }
 
-  isGameCreated() {
-    return this.stompClient.subscribe('/game', (message) => {
-      if (message.body) {
-        this.activeGame = message.body;
+  createGame(name: string) {
+    this.nameOfCreatedGame = name;
+    console.log('Tworze gre o nazwie: ' + name)
+    this.stompClient.send('/app/game', {}, name);
+  }
 
-      }
-    });
+  getStompClient() {
+    return this.stompClient;
   }
 }
 
@@ -83,8 +113,9 @@ class Message {
   }
 }
 
-class Game {
-  public id: number;
-  public active: boolean;
+export class Game {
+  id: number;
+  name: string;
+  active: boolean;
 }
 

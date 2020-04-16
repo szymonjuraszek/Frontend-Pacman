@@ -15,6 +15,7 @@ export class GameComponent implements OnInit {
 
   constructor(private menuScene: MenuSceneComponent, private mainScene: MainSceneComponent) {
     this.config = {
+
       type: Phaser.AUTO,
       height: 1024,
       width: 1600,
@@ -31,17 +32,21 @@ export class GameComponent implements OnInit {
         }
       }
     };
+
   }
 
   ngOnInit() {
-    console.error('Initialize Game Object');
+    console.error(this.phaserGame);
+    if(!this.phaserGame) {
+      console.error('Initialize Game Object');
 
-    this.phaserGame = new Phaser.Game(this.config);
-    this.phaserGame.scene.add('menu', this.menuScene);
-    this.phaserGame.scene.add('main', this.mainScene);
-    this.phaserGame.scene.start('menu');
+      this.phaserGame = new Phaser.Game(this.config);
+      this.phaserGame.scene.add('menu', this.menuScene);
+      this.phaserGame.scene.add('main', this.mainScene);
+      this.phaserGame.scene.start('menu');
 
-    console.error('Completed Initialization Game Object');
+      console.error('Completed Initialization Game Object');
+    }
   }
 
 }

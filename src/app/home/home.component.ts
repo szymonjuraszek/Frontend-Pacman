@@ -1,22 +1,25 @@
-import { Component, OnInit } from '@angular/core';
+import {Component} from '@angular/core';
 import {JwksValidationHandler, OAuthService} from "angular-oauth2-oidc";
 import {authCodeFlowConfig} from "../sso.config";
+import {Router} from "@angular/router";
 
 @Component({
   selector: 'app-home',
   templateUrl: './home.component.html',
   styleUrls: ['./home.component.css']
 })
-export class HomeComponent implements OnInit {
+export class HomeComponent {
 
-  constructor(private oauthService: OAuthService) { }
-
-  ngOnInit(): void {
+  constructor(private oauthService: OAuthService, private router: Router) {
     this.oauthService.configure(authCodeFlowConfig);
     this.oauthService.tokenValidationHandler = new JwksValidationHandler();
     this.oauthService.loadDiscoveryDocument();
-    this.oauthService.tokenEndpoint = 'http://localhost:8080/api/token';
-    this.oauthService.tryLoginCodeFlow();
+    if (window.location.search.includes('code')) {
+      this.oauthService.tokenEndpoint = 'https://localhost:8080/api/token';
+      this.oauthService.tryLoginCodeFlow().then(oauthService => {
+        this.router.navigate(['menu']);
+      });
+    }
   }
 
   startGame() {

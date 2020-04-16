@@ -13,7 +13,7 @@ export class AppComponent {
   constructor(private httpService: HttpService) {
   }
 
-  login() {
-    this.httpService.login();
-  }
+  // login() {
+  //   this.httpService.login();
+  // }
 }

@@ -1,11 +1,11 @@
 import {Component, Injectable} from '@angular/core';
 import {WebsocketService} from '../../websocket/websocket.service';
 import Phaser from 'phaser';
-import * as SockJS from 'sockjs-client';
 import {HttpService} from '../../http/http.service';
 import {Game} from '../../model/game';
-import {JwksValidationHandler, OAuthService} from "angular-oauth2-oidc";
-import {authCodeFlowConfig} from "../../sso.config";
+import {OAuthService} from "angular-oauth2-oidc";
+import {Router} from "@angular/router";
+import {Subject} from "rxjs";
 
 @Component({
   selector: 'app-menu-scene',
@@ -17,33 +17,46 @@ import {authCodeFlowConfig} from "../../sso.config";
 })
 export class MenuSceneComponent extends Phaser.Scene {
   private startButton: Phaser.GameObjects.Image;
-  private a = false;
-  games: Array<Game>;
+  private joinButtons: Array<Phaser.GameObjects.Image> = [];
 
-  constructor(private websocketService: WebsocketService, private httpService: HttpService, private oauthService: OAuthService) {
+  activeGames: Array<Game>;
+  nameOfCreatedGame = '';
+  private ifWaitingRoomEnable = false;
+
+  constructor(private websocketService: WebsocketService, private httpService: HttpService, private oauthService: OAuthService,
+              private router: Router) {
     super({key: 'menu'});
+    console.log('hhhhhhhhhhhhhhhhhhhhhhhh');
+    if (!sessionStorage.getItem('access_token') || !sessionStorage.getItem('access_token')) {
+      router.navigate(['home']);
+    }
+  }
+
+  logout() {
+    // this.oauthService.logoutUrl = "http://localhost:4200/home";
+    this.websocketService.disconnect();
+    if (!sessionStorage.getItem('access_token') || !sessionStorage.getItem('access_token')) {
+      this.router.navigate(['home']);
+    } else {
+      this.oauthService.logOut();
+      this.router.navigate(['home']);
+    }
   }
 
   create() {
-    // this.httpService.getAllGames().subscribe((games) => {
-    //   this.games = games;
-    // });
-
-    this.websocketService.initializeWebSocketConnection();
-    // this.oauthService.configure(authCodeFlowConfig);
-    // this.oauthService.tokenValidationHandler = new JwksValidationHandler();
-    // this.oauthService.loadDiscoveryDocument();
-    // this.oauthService.tokenEndpoint = 'http://localhost:8080/api/token';
-    // this.oauthService.tryLoginCodeFlow();
-
-    console.log('MENU CREATE !!!');
+    console.log('hhhhhhhhhhhhhhhhhhhhhhhh');
+    this.loadDataAboutGames();
 
     this.add.image(this.game.canvas.width / 2, this.game.canvas.height / 2, 'menu-background');
-    this.add.text(50, 50, 'Active games', {
-      font: "40px Arial",
-      fill: "#ff0044"
+
+    this.showInformationAboutActiveGamesComponent();
+
+    this.websocketService.ifChangeSceneOnWaitingRoom().subscribe((ifChange) => {
+      this.ifWaitingRoomEnable = ifChange;
+      this.scene.stop('menu');
+      this.scene.start('main');
+      this.router.navigate(['game'])
     });
-    this.startButton = this.add.image(this.game.canvas.width / 2, this.game.canvas.height / 2 + 100, 'start-button');
 
     this.startButton.setInteractive();
 
@@ -54,21 +67,62 @@ export class MenuSceneComponent extends Phaser.Scene {
       console.log('OUTAA HERE');
     });
     this.startButton.on('pointerup', () => {
-      // this.websocketService.
-      // this.oauthService.initCodeFlow();
+      this.websocketService.getGames();
     });
-
   }
 
   preload() {
-    console.log('preload for menu component!');
-
     this.load.image('menu-background', 'assets/menu/images/pacman-menu.jpg');
+
     this.load.image('start-button', 'assets/menu/images/start-button.jpg');
+    this.load.image('join-button', 'assets/menu/images/join-button.jpg');
   }
 
   update() {
     console.log('SCENA MENU');
+    if (this.ifWaitingRoomEnable) {
+
+    }
+  }
+
+  loadDataAboutGames() {
+    this.websocketService.initializeWebSocketConnection();
+
+    setTimeout(() => {
+      this.websocketService.getGames();
+    }, 3000);
+  }
+
+  showInformationAboutActiveGamesComponent() {
+    this.websocketService.getActiveGames().subscribe((games: Array<Game>) => {
+      this.activeGames = games;
+
+      this.joinButtons = [];
+      for (let i = 0; i < this.activeGames.length; i++) {
+        this.add.text(60, 100 + i * 50, '- ' + this.activeGames[i].name, {
+          font: "40px Arial",
+          fill: "#ff0044"
+        });
+        this.joinButtons.push(this.add.image(300, 125 + i * 50, 'join-button'));
+      }
+    });
+
+    this.add.text(50, 50, 'Active games', {
+      font: "40px Arial",
+      fill: "#ff0044"
+    });
+    this.startButton = this.add.image(this.game.canvas.width / 2, this.game.canvas.height / 2 + 100, 'start-button');
+  }
+
+  createGame() {
+    if (this.nameOfCreatedGame != '') {
+      console.error(this.nameOfCreatedGame);
+      this.websocketService.createGame(this.nameOfCreatedGame);
+    }
+  }
+
+  onClick(event) {
+    this.nameOfCreatedGame = event.target.value;
   }
 
 }

@@ -3,6 +3,7 @@ import Phaser from 'phaser';
 import Sprite = Phaser.GameObjects.Sprite;
 import {WebsocketService} from '../../websocket/websocket.service';
 import List = Phaser.Structs.List;
+import {Router} from "@angular/router";
 
 @Component({
   selector: 'app-main-scene',
@@ -36,7 +37,7 @@ export class MainSceneComponent extends Phaser.Scene {
 
   private counter = 0;
 
-  constructor(private websocketService: WebsocketService) {
+  constructor(private websocketService: WebsocketService, private router: Router) {
     super({key: 'main'});
   }
 
@@ -68,6 +69,7 @@ export class MainSceneComponent extends Phaser.Scene {
       console.log('OUTAA HERE');
     });
     this.exitButton.on('pointerup', () => {
+      console.error('Wychodze!!!')
       this.switchScene();
     });
 
@@ -181,10 +183,11 @@ export class MainSceneComponent extends Phaser.Scene {
 
   switchScene() {
     this.websocketService.disconnect();
-    this.game.scene.stop('main');
+    this.game.scene.stop('game');
     this.game.scene.start('menu');
-
-    console.error('EXIT');
+    this.router.navigate(['menu']);
+    this.game.destroy(true);
+    console.error('Przed stworzeniem');
   }
 
   movePlayerManager() {
@@ -204,6 +207,13 @@ export class MainSceneComponent extends Phaser.Scene {
       this.player.setVelocityX(0);
       this.player.setVelocityY(0);
     }
+  }
+
+  leaveGame() {
+    this.websocketService.disconnect();
+    this.game.scene.stop('game');
+    this.game.scene.start('menu');
+    // this.router.navigate(['menu']);
   }
 
 }
