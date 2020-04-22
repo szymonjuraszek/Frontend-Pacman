@@ -7,6 +7,7 @@ import {OAuthService} from "angular-oauth2-oidc";
 import {Game} from "../../model/Game";
 import {HttpService} from "../../http/http.service";
 import {Player} from "../../model/Player";
+import List = Phaser.Structs.List;
 
 @Component({
   selector: 'app-main-scene',
@@ -39,7 +40,6 @@ export class MainSceneComponent extends Phaser.Scene {
 
   private players: Map<string,Phaser.GameObjects.Sprite> = new Map<string,Phaser.GameObjects.Sprite>();
   private myPlayerName: string;
-  private activeGame: Game = new Game();
   private startSendingPlayerPosition = false;
 
   constructor(private websocketService: WebsocketService, private router: Router, private oauthService: OAuthService,
@@ -57,39 +57,36 @@ export class MainSceneComponent extends Phaser.Scene {
   }
 
   updatePlayersInGame() {
-    this.websocketService.getGameToAddPlayer().subscribe((gameWithNewPlayers: Game) => {
-      const results = gameWithNewPlayers.players
-        .filter(({nickname: id1}) => !this.activeGame.players.some(({nickname: id2}) => id2 === id1));
-
+    this.websocketService.getPlayersToAdd().subscribe((playersToAdd: Array<Player>) => {
       if(!this.myPlayerName) {
         this.myPlayerName = JSON.parse(sessionStorage.getItem('id_token_claims_obj')).email;
       }
 
       console.error('Nazywam sie: ' + this.myPlayerName);
 
-      for (const player of results) {
-        this.activeGame.players.push(player);
-        this.players.set(player.nickname, this.physics.add.sprite(player.positionX, player.positionY, 'player'));
+      for (const player of playersToAdd) {
+        if(!this.players.has(player.nickname)) {
+          this.players.set(player.nickname, this.physics.add.sprite(player.positionX, player.positionY, 'player'));
+        }
       }
 
-      console.error(this.activeGame);
       this.startSendingPlayerPosition = true;
-      // console.error('wyswietlam dane o swoim graczu: ');
-      // console.error(this.players.get(this.myPlayerName));
     });
 
     this.websocketService.getPlayerToRemove().subscribe((playerToRemove: Player) => {
-      this.activeGame.players = this.activeGame.players.filter(currentPlayer => currentPlayer !== playerToRemove);
-      this.players.get(this.myPlayerName).destroy(true);
-      this.startSendingPlayerPosition = false;
-      this.players.delete(this.myPlayerName);
-      console.error(this.activeGame);
+      this.players.get(playerToRemove.nickname).destroy(true);
+      this.players.delete(playerToRemove.nickname);
     });
   }
 
   create() {
     this.loadDataAboutGames();
     this.updatePlayersInGame();
+
+    this.websocketService.getPlayerToUpdate().subscribe((player) => {
+      this.players.get(player.nickname).x = player.positionX;
+      this.players.get(player.nickname).y = player.positionY;
+    })
 
     console.error('Create Board');
 
@@ -200,18 +197,21 @@ export class MainSceneComponent extends Phaser.Scene {
     });
   }
 
+  private number = 0;
+
   update() {
     console.log('Scena GRA');
     // this.moveShip(this.monster1, 5);
     // this.moveShip(this.monster2, 7);
     // this.moveShip(this.monster3, 9);
     // this.moveShip(this.monster4, 11);
+    // this.number++;
+    // console.error(this.number);
 
     this.counter++;
     if (this.counter > 5 && this.startSendingPlayerPosition) {
       this.movePlayerManager();
       this.counter = 0;
-      this.websocketService.sendPosition(this.players.get(this.myPlayerName));
     }
   }
 
@@ -226,13 +226,13 @@ export class MainSceneComponent extends Phaser.Scene {
 
   movePlayerManager() {
     if (this.cursorKeys.left.isDown === true) {
-      this.players.get(this.myPlayerName).x -= 64;
+      this.websocketService.sendPosition(this.players.get(this.myPlayerName).x-32, this.players.get(this.myPlayerName).y , this.myPlayerName);
     } else if (this.cursorKeys.right.isDown === true) {
-      this.players.get(this.myPlayerName).x += 64;
+      this.websocketService.sendPosition(this.players.get(this.myPlayerName).x+32, this.players.get(this.myPlayerName).y, this.myPlayerName);
     } else if (this.cursorKeys.up.isDown === true) {
-      this.players.get(this.myPlayerName).y -= 64;
+      this.websocketService.sendPosition(this.players.get(this.myPlayerName).x, this.players.get(this.myPlayerName).y-32, this.myPlayerName);
     } else if (this.cursorKeys.down.isDown === true) {
-      this.players.get(this.myPlayerName).y += 64;
+      this.websocketService.sendPosition(this.players.get(this.myPlayerName).x, this.players.get(this.myPlayerName).y+32, this.myPlayerName);
     }
   }
 

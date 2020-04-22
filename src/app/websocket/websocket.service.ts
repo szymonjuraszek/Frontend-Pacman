@@ -5,14 +5,16 @@ import {Subject} from "rxjs";
 import {Player} from "../model/Player";
 import {Game} from "../model/Game";
 import Sprite = Phaser.GameObjects.Sprite;
+import List = Phaser.Structs.List;
 
 @Injectable()
 export class WebsocketService {
   private serverUrl = 'https://localhost:8080/socket';
   private stompClient;
 
-  private gameToAddPlayer = new Subject<Game>();
+  private playersToAdd = new Subject<Array<Player>>();
   private playerToRemove = new Subject<Player>();
+  private playerToUpdate = new Subject<Player>();
 
   constructor() {}
 
@@ -22,7 +24,7 @@ export class WebsocketService {
 
     this.stompClient.connect({}, (frame) => {
       this.stompClient.subscribe('/pacman/add/players', (gameToAddPlayer) => {
-          this.gameToAddPlayer.next(JSON.parse(gameToAddPlayer.body));
+          this.playersToAdd.next(JSON.parse(gameToAddPlayer.body));
           console.error('Zaktualizowano gre, dodano gracza');
       });
 
@@ -31,9 +33,10 @@ export class WebsocketService {
         console.error('Zaktualizowano gre, usunieto gracza');
       });
 
-      this.stompClient.subscribe('/pacman/update/game', (message) => {
-        if (message.body) {
-          console.error('Update game');
+      this.stompClient.subscribe('/pacman/update/player', (playerToUpdate) => {
+        if (playerToUpdate.body) {
+          // console.error(playerToUpdate.body);
+          this.playerToUpdate.next(JSON.parse(playerToUpdate.body));
         }
       });
     });
@@ -44,8 +47,12 @@ export class WebsocketService {
     this.stompClient.disconnect();
   }
 
-  sendPosition(player: Sprite) {
-    this.stompClient.send('/app/send/position', {}, player.x, player.y);
+  sendPosition(x: number, y: number, nickname: string) {
+    this.stompClient.send('/app/send/position', {},JSON.stringify({
+      "nickname": nickname,
+      "positionX": x,
+      "positionY": y
+    }));
   }
 
   //////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -54,11 +61,15 @@ export class WebsocketService {
     return this.stompClient;
   }
 
-  getGameToAddPlayer() {
-    return this.gameToAddPlayer.asObservable();
+  getPlayersToAdd() {
+    return this.playersToAdd.asObservable();
   }
 
   getPlayerToRemove() {
     return this.playerToRemove.asObservable();
+  }
+
+  getPlayerToUpdate() {
+    return this.playerToUpdate.asObservable();
   }
 }
