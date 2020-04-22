@@ -10,34 +10,24 @@ import {Router} from "@angular/router";
 
 @Injectable()
 export class OAuth2Interceptor implements HttpInterceptor {
+  private regex = new RegExp('https://localhost:8080/api/.+');
 
   constructor(private cookieService: CookieService, private router: Router) {
   }
 
   intercept(req: HttpRequest<any>,
             next: HttpHandler): Observable<HttpEvent<any>> {
-    // console.log('Jestem w interceptorze!');
-    //
-    // console.log(sessionStorage.getItem("access_token"));
-    // console.log(sessionStorage.getItem('id_token'));
+    console.log(sessionStorage.getItem("access_token"));
+    console.log(sessionStorage.getItem('id_token'));
 
     const accessToken = sessionStorage.getItem('access_token');
     const idToken = sessionStorage.getItem('id_token');
 
-
-    const regex = new RegExp("http://localhost:8080/api/[.]+");
-
-    if(regex.test(req.url)) {
-      console.log('fd')
-      debugger;
-    }
-    // debugger;
-
-    if (idToken && accessToken && regex.test(req.url)) {
-      console.error('nfdsfdsf')
+    if (idToken && accessToken && this.regex.exec(req.url)) {
+      console.error('dodaje kolejne informacje do zapytania')
       const cloned = req.clone({
         headers: req.headers.set('Authorization',
-          'Bearer ' + accessToken).set('Cookie', idToken)
+          'Bearer ' + idToken).set('id_token', accessToken)
       });
 
       return next.handle(cloned);

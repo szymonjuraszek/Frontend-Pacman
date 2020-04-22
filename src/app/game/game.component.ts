@@ -1,7 +1,5 @@
 import {Component, OnInit} from '@angular/core';
 import Phaser from 'phaser';
-import {MenuSceneComponent} from '../scenes/menu-scene/menu-scene.component';
-import {AppComponent} from '../app.component';
 import {MainSceneComponent} from '../scenes/main-scene/main-scene.component';
 
 @Component({
@@ -13,9 +11,8 @@ export class GameComponent implements OnInit {
   phaserGame: Phaser.Game;
   config: Phaser.Types.Core.GameConfig;
 
-  constructor(private menuScene: MenuSceneComponent, private mainScene: MainSceneComponent) {
+  constructor(private mainScene: MainSceneComponent) {
     this.config = {
-
       type: Phaser.AUTO,
       height: 1024,
       width: 1600,
@@ -36,17 +33,15 @@ export class GameComponent implements OnInit {
   }
 
   ngOnInit() {
-    console.error(this.phaserGame);
-    if(!this.phaserGame) {
+
       console.error('Initialize Game Object');
 
       this.phaserGame = new Phaser.Game(this.config);
-      this.phaserGame.scene.add('menu', this.menuScene);
       this.phaserGame.scene.add('main', this.mainScene);
-      this.phaserGame.scene.start('menu');
+      this.phaserGame.scene.start('main');
 
       console.error('Completed Initialization Game Object');
     }
-  }
+
 
 }

@@ -2,8 +2,11 @@ import {Component, Injectable} from '@angular/core';
 import Phaser from 'phaser';
 import Sprite = Phaser.GameObjects.Sprite;
 import {WebsocketService} from '../../websocket/websocket.service';
-import List = Phaser.Structs.List;
 import {Router} from "@angular/router";
+import {OAuthService} from "angular-oauth2-oidc";
+import {Game} from "../../model/Game";
+import {HttpService} from "../../http/http.service";
+import {Player} from "../../model/Player";
 
 @Component({
   selector: 'app-main-scene',
@@ -32,19 +35,67 @@ export class MainSceneComponent extends Phaser.Scene {
   private monster3: Phaser.GameObjects.Sprite;
   private monster4: Phaser.GameObjects.Sprite;
 
-  private player: Phaser.Physics.Arcade.Sprite;
-  private players: Array<Sprite>;
-
   private counter = 0;
 
-  constructor(private websocketService: WebsocketService, private router: Router) {
+  private players: Map<string,Phaser.GameObjects.Sprite> = new Map<string,Phaser.GameObjects.Sprite>();
+  private myPlayerName: string;
+  private activeGame: Game = new Game();
+  private startSendingPlayerPosition = false;
+
+  constructor(private websocketService: WebsocketService, private router: Router, private oauthService: OAuthService,
+              private httpService: HttpService) {
     super({key: 'main'});
   }
 
+  loadDataAboutGames() {
+    this.websocketService.initializeWebSocketConnection();
+    setTimeout(() => {
+      this.httpService.addPlayer().subscribe(data => {
+        console.error('Dodalem uzytkownika do gry!');
+      });
+    }, 3000);
+  }
+
+  updatePlayersInGame() {
+    this.websocketService.getGameToAddPlayer().subscribe((gameWithNewPlayers: Game) => {
+      const results = gameWithNewPlayers.players
+        .filter(({nickname: id1}) => !this.activeGame.players.some(({nickname: id2}) => id2 === id1));
+
+      if(!this.myPlayerName) {
+        this.myPlayerName = JSON.parse(sessionStorage.getItem('id_token_claims_obj')).email;
+      }
+
+      console.error('Nazywam sie: ' + this.myPlayerName);
+
+      for (const player of results) {
+        this.activeGame.players.push(player);
+        this.players.set(player.nickname, this.physics.add.sprite(player.positionX, player.positionY, 'player'));
+      }
+
+      console.error(this.activeGame);
+      this.startSendingPlayerPosition = true;
+      // console.error('wyswietlam dane o swoim graczu: ');
+      // console.error(this.players.get(this.myPlayerName));
+    });
+
+    this.websocketService.getPlayerToRemove().subscribe((playerToRemove: Player) => {
+      this.activeGame.players = this.activeGame.players.filter(currentPlayer => currentPlayer !== playerToRemove);
+      this.players.get(this.myPlayerName).destroy(true);
+      this.startSendingPlayerPosition = false;
+      this.players.delete(this.myPlayerName);
+      console.error(this.activeGame);
+    });
+  }
+
   create() {
+    this.loadDataAboutGames();
+    this.updatePlayersInGame();
+
     console.error('Create Board');
 
     this.board = this.add.tilemap('board');
+    console.error(this.board.getTileset('pacman-elements'));
+    console.error(this.board.getTileset('pacman-elements').getTileData(1));
 
     this.monster1 = this.add.sprite(400, 200, 'monster1');
     this.monster2 = this.add.sprite(300, 200, 'monster2');
@@ -54,31 +105,23 @@ export class MainSceneComponent extends Phaser.Scene {
     this.pacmanObjects = this.board.addTilesetImage('pacman-elements');
     this.coin = this.board.addTilesetImage('coin-new');
 
-    this.layer1 = this.board.createDynamicLayer('filling', [this.pacmanObjects], 0, 0);
+    this.layer1 = this.board.createDynamicLayer('path', [this.pacmanObjects], 0, 0);
     this.layer2 = this.board.createDynamicLayer('background_main', [this.pacmanObjects], 0, 0);
     this.layer3 = this.board.createDynamicLayer('coins', [this.coin], 0, 0);
     this.layer4 = this.board.createDynamicLayer('figures', [this.pacmanObjects], 0, 0);
 
     this.exitButton = this.add.image(this.game.canvas.width - 48, 48, 'exit-button');
     this.exitButton.setInteractive();
-
-    this.exitButton.on('pointerover', () => {
-      console.log('hovahh');
-    });
-    this.exitButton.on('pointerout', () => {
-      console.log('OUTAA HERE');
-    });
     this.exitButton.on('pointerup', () => {
-      console.error('Wychodze!!!')
       this.switchScene();
     });
 
-    this.player = this.physics.add.sprite(48, 144, 'player');
+    // this.player123 = this.physics.add.sprite(48, 144, 'player');
     this.cursorKeys = this.input.keyboard.createCursorKeys();
-    this.player.setCollideWorldBounds(true);
+    // this.player.setCollideWorldBounds(true);
 
-    this.layer2.setCollisionBetween(148, 238);
-    this.physics.add.collider(this.player, this.layer2);
+    // this.layer2.setCollisionBetween(148, 238);
+    // this.physics.add.collider(this.player, this.layer2);
 
     this.anims.create({
       key: 'monster1_anim',
@@ -163,13 +206,13 @@ export class MainSceneComponent extends Phaser.Scene {
     // this.moveShip(this.monster2, 7);
     // this.moveShip(this.monster3, 9);
     // this.moveShip(this.monster4, 11);
-    this.counter++;
-    if (this.counter > 5) {
-      this.counter = 0;
-      this.websocketService.sendMessage(this.player.x, this.player.y);
-    }
 
-    this.movePlayerManager();
+    this.counter++;
+    if (this.counter > 5 && this.startSendingPlayerPosition) {
+      this.movePlayerManager();
+      this.counter = 0;
+      this.websocketService.sendPosition(this.players.get(this.myPlayerName));
+    }
   }
 
   moveShip(ship: Sprite, speed) {
@@ -181,39 +224,35 @@ export class MainSceneComponent extends Phaser.Scene {
     }
   }
 
-  switchScene() {
-    this.websocketService.disconnect();
-    this.game.scene.stop('game');
-    this.game.scene.start('menu');
-    this.router.navigate(['menu']);
-    this.game.destroy(true);
-    console.error('Przed stworzeniem');
-  }
-
   movePlayerManager() {
     if (this.cursorKeys.left.isDown === true) {
-      this.player.setVelocityX(-64);
-      this.player.setVelocityY(0);
+      this.players.get(this.myPlayerName).x -= 64;
     } else if (this.cursorKeys.right.isDown === true) {
-      this.player.setVelocityX(64);
-      this.player.setVelocityY(0);
+      this.players.get(this.myPlayerName).x += 64;
     } else if (this.cursorKeys.up.isDown === true) {
-      this.player.setVelocityY(-64);
-      this.player.setVelocityX(0);
+      this.players.get(this.myPlayerName).y -= 64;
     } else if (this.cursorKeys.down.isDown === true) {
-      this.player.setVelocityY(64);
-      this.player.setVelocityX(0);
-    } else {
-      this.player.setVelocityX(0);
-      this.player.setVelocityY(0);
+      this.players.get(this.myPlayerName).y += 64;
     }
   }
 
-  leaveGame() {
-    this.websocketService.disconnect();
-    this.game.scene.stop('game');
-    this.game.scene.start('menu');
-    // this.router.navigate(['menu']);
+
+  switchScene() {
+    this.httpService.logout().subscribe((data) => {
+        console.error(data);
+        this.logout();
+        this.game.destroy(true);
+        this.game.scene.remove('main');
+        document.getElementsByTagName('canvas').item(0).remove();
+        this.router.navigate(['home']);
+      })
+
   }
 
+  logout() {
+    this.websocketService.disconnect();
+    if (sessionStorage.getItem('access_token') && sessionStorage.getItem('access_token')) {
+      this.oauthService.logOut();
+    }
+  }
 }

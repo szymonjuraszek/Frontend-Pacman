@@ -1,68 +1,39 @@
 import {Injectable} from '@angular/core';
 import * as Stomp from 'stompjs';
 import * as SockJS from 'sockjs-client';
-import {Observable, Subject} from "rxjs";
+import {Subject} from "rxjs";
+import {Player} from "../model/Player";
+import {Game} from "../model/Game";
+import Sprite = Phaser.GameObjects.Sprite;
 
 @Injectable()
 export class WebsocketService {
   private serverUrl = 'https://localhost:8080/socket';
   private stompClient;
 
-  message = 'fd';
-
-  private activeGames = new Subject<Array<Game>>();
-  private ifWaitingRoomEnable = new Subject<boolean>();
-  private nameOfCreatedGame: string;
-  myGame: Game;
+  private gameToAddPlayer = new Subject<Game>();
+  private playerToRemove = new Subject<Player>();
 
   constructor() {}
-
-  getActiveGames() {
-    return this.activeGames.asObservable();
-  }
-
-  getNameOfCreatedGame() {
-    return this.nameOfCreatedGame;
-  }
-
-  setNameOfCreatedGame(name: string) {
-    this.nameOfCreatedGame = name;
-  }
-
-  ifChangeSceneOnWaitingRoom() {
-    return this.ifWaitingRoomEnable.asObservable();
-  }
 
   initializeWebSocketConnection() {
     const ws = new SockJS(this.serverUrl);
     this.stompClient = Stomp.over(ws);
 
     this.stompClient.connect({}, (frame) => {
-      this.stompClient.subscribe('/pacman/game', (createdGame) => {
-        let game: Game;
-        game = JSON.parse(createdGame.body);
-        if(game.name === this.nameOfCreatedGame) {
-          this.myGame = game;
-          console.error('nazwa: ' + this.myGame.name);
-          console.error('id: ' + this.myGame.id);
-          console.error('active: ' + this.myGame.active);
-          this.ifWaitingRoomEnable.next(true);
-        } else {
-          console.error('Nie dla ciebie wiadomosc');
-        }
+      this.stompClient.subscribe('/pacman/add/players', (gameToAddPlayer) => {
+          this.gameToAddPlayer.next(JSON.parse(gameToAddPlayer.body));
+          console.error('Zaktualizowano gre, dodano gracza');
       });
 
-      this.stompClient.subscribe('/pacman/activeGames', (message) => {
-        console.error('active games');
-        if (message.body) {
-          this.activeGames.next(JSON.parse(message.body));
-        }
+      this.stompClient.subscribe('/pacman/remove/player', (playerToRemove) => {
+        this.playerToRemove.next(JSON.parse(playerToRemove.body));
+        console.error('Zaktualizowano gre, usunieto gracza');
       });
 
-      this.stompClient.subscribe('/chat', (message) => {
+      this.stompClient.subscribe('/pacman/update/game', (message) => {
         if (message.body) {
-          this.message = message.body;
-          console.log(message.body);
+          console.error('Update game');
         }
       });
     });
@@ -73,49 +44,21 @@ export class WebsocketService {
     this.stompClient.disconnect();
   }
 
-  sendMessage(x, y) {
-    // const jsonMessage = {
-    //   x: x,
-    //   y: y
-    // };
-    // console.log(jsonMessage);
-
-    this.stompClient.send('/app/send/message', {}, JSON.stringify(new Message(x, y)));
+  sendPosition(player: Sprite) {
+    this.stompClient.send('/app/send/position', {}, player.x, player.y);
   }
 
-  sendMessageSth(message) {
-    this.stompClient.send('/app/send/sth', {}, message);
-  }
-
-  getGames() {
-    console.log('wysylam wiadomsoc do app/games')
-    this.stompClient.send('/app/games', {}, 'fdsfffff');
-  }
-
-  createGame(name: string) {
-    this.nameOfCreatedGame = name;
-    console.log('Tworze gre o nazwie: ' + name)
-    this.stompClient.send('/app/game', {}, name);
-  }
+  //////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   getStompClient() {
     return this.stompClient;
   }
-}
 
-class Message {
-  x: number;
-  y: number;
+  getGameToAddPlayer() {
+    return this.gameToAddPlayer.asObservable();
+  }
 
-  constructor(x: number, y: number) {
-    this.x = x;
-    this.y = y;
+  getPlayerToRemove() {
+    return this.playerToRemove.asObservable();
   }
 }
-
-export class Game {
-  id: number;
-  name: string;
-  active: boolean;
-}
-

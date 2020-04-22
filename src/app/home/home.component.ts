@@ -17,7 +17,7 @@ export class HomeComponent {
     if (window.location.search.includes('code')) {
       this.oauthService.tokenEndpoint = 'https://localhost:8080/api/token';
       this.oauthService.tryLoginCodeFlow().then(oauthService => {
-        this.router.navigate(['menu']);
+        this.router.navigate(['game']);
       });
     }
   }
