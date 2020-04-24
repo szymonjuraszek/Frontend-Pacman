@@ -6,6 +6,7 @@ import {Player} from "../model/Player";
 import {Game} from "../model/Game";
 import Sprite = Phaser.GameObjects.Sprite;
 import List = Phaser.Structs.List;
+import {Monster} from "../model/Monster";
 
 @Injectable()
 export class WebsocketService {
@@ -15,6 +16,7 @@ export class WebsocketService {
   private playersToAdd = new Subject<Array<Player>>();
   private playerToRemove = new Subject<Player>();
   private playerToUpdate = new Subject<Player>();
+  private monsterToUpdate = new Subject<Monster>();
 
   constructor() {}
 
@@ -37,6 +39,12 @@ export class WebsocketService {
         if (playerToUpdate.body) {
           // console.error(playerToUpdate.body);
           this.playerToUpdate.next(JSON.parse(playerToUpdate.body));
+        }
+      });
+
+      this.stompClient.subscribe('/pacman/update/monster', (monster) => {
+        if (monster.body) {
+          this.monsterToUpdate.next(JSON.parse(monster.body));
         }
       });
     });
@@ -71,5 +79,9 @@ export class WebsocketService {
 
   getPlayerToUpdate() {
     return this.playerToUpdate.asObservable();
+  }
+
+  getMonsterToUpdate() {
+    return this.monsterToUpdate.asObservable();
   }
 }
