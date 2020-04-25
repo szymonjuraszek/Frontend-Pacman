@@ -17,8 +17,8 @@ export class OAuth2Interceptor implements HttpInterceptor {
 
   intercept(req: HttpRequest<any>,
             next: HttpHandler): Observable<HttpEvent<any>> {
-    console.log(sessionStorage.getItem("access_token"));
-    console.log(sessionStorage.getItem('id_token'));
+    // console.log(sessionStorage.getItem("access_token"));
+    // console.log(sessionStorage.getItem('id_token'));
 
     const accessToken = sessionStorage.getItem('access_token');
     const idToken = sessionStorage.getItem('id_token');

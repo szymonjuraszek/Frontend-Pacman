@@ -81,6 +81,7 @@ export class MainSceneComponent extends Phaser.Scene {
     });
 
     this.websocketService.getPlayerToUpdate().subscribe((player) => {
+      console.error(player);
       this.players.get(player.nickname).x = player.positionX;
       this.players.get(player.nickname).y = player.positionY;
     })
@@ -113,7 +114,7 @@ export class MainSceneComponent extends Phaser.Scene {
 
     this.layer1 = this.board.createDynamicLayer('path', [this.pacmanObjects], 0, 0);
     this.layer2 = this.board.createDynamicLayer('background_main', [this.pacmanObjects], 0, 0);
-    this.layer3 = this.board.createDynamicLayer('coins', [this.coin], 0, 0);
+    // this.layer3 = this.board.createDynamicLayer('coins', [this.coin], 0, 0);
 
     this.exitButton = this.add.image(this.game.canvas.width - 48, 48, 'exit-button');
     this.exitButton.setInteractive();
