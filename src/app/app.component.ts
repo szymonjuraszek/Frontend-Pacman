@@ -1,6 +1,4 @@
 import { Component } from '@angular/core';
-import {WebsocketService} from './websocket/websocket.service';
-import {HttpService} from "./http/http.service";
 
 @Component({
   selector: 'app-root',
@@ -8,12 +6,6 @@ import {HttpService} from "./http/http.service";
   styleUrls: ['./app.component.css']
 })
 export class AppComponent {
-  title;
-
-  constructor(private httpService: HttpService) {
+  constructor() {
   }
-
-  // login() {
-  //   this.httpService.login();
-  // }
 }

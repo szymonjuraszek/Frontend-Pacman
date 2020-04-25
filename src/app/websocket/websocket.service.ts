@@ -1,7 +1,7 @@
 import {Injectable} from '@angular/core';
 import * as Stomp from 'stompjs';
 import * as SockJS from 'sockjs-client';
-import {Subject} from "rxjs";
+import {BehaviorSubject, Subject} from "rxjs";
 import {Player} from "../model/Player";
 import {Game} from "../model/Game";
 import Sprite = Phaser.GameObjects.Sprite;
@@ -11,18 +11,22 @@ import {Monster} from "../model/Monster";
 @Injectable()
 export class WebsocketService {
   private serverUrl = 'https://localhost:8080/socket';
+  private state: BehaviorSubject<SocketClientState>;
   private stompClient;
 
   private playersToAdd = new Subject<Array<Player>>();
   private playerToRemove = new Subject<Player>();
   private playerToUpdate = new Subject<Player>();
   private monsterToUpdate = new Subject<Monster>();
+  private exitGame = new Subject<Boolean>();
+  private ifJoinGame = new Subject<string>();
 
   constructor() {}
 
   initializeWebSocketConnection() {
     const ws = new SockJS(this.serverUrl);
     this.stompClient = Stomp.over(ws);
+    this.state = new BehaviorSubject<SocketClientState>(SocketClientState.ATTEMPTING);
 
     this.stompClient.connect({}, (frame) => {
       this.stompClient.subscribe('/pacman/add/players', (gameToAddPlayer) => {
@@ -47,6 +51,19 @@ export class WebsocketService {
           this.monsterToUpdate.next(JSON.parse(monster.body));
         }
       });
+
+      this.stompClient.subscribe('/pacman/exit/game', (ifRemove) => {
+        this.exitGame.next(JSON.parse(ifRemove.body));
+        console.error('Wychodze z gry!');
+      });
+
+      this.stompClient.subscribe('/pacman/join/game', (playerNickname) => {
+        this.ifJoinGame.next(playerNickname.body);
+      });
+
+      this.state.next(SocketClientState.CONNECTED);
+    }, (error) => {
+      this.state.next(SocketClientState.ERROR);
     });
   }
 
@@ -63,10 +80,18 @@ export class WebsocketService {
     }));
   }
 
-  //////////////////////////////////////////////////////////////////////////////////////////////////////////
+  quitGame(nickname: string) {
+    this.stompClient.send('/app/exit/game', {},nickname);
+  }
 
-  getStompClient() {
-    return this.stompClient;
+  joinGame(nickname: string) {
+    this.stompClient.send('/app/join/game', {},nickname);
+  }
+
+  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+  getState() {
+    return this.state.asObservable();
   }
 
   getPlayersToAdd() {
@@ -84,4 +109,18 @@ export class WebsocketService {
   getMonsterToUpdate() {
     return this.monsterToUpdate.asObservable();
   }
+
+  getExitGame() {
+    return this.exitGame.asObservable();
+  }
+
+  getIfJoinGame() {
+    return this.ifJoinGame.asObservable();
+  }
+}
+
+export enum SocketClientState {
+  CONNECTED,
+  ATTEMPTING,
+  ERROR
 }

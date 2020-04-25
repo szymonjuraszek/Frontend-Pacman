@@ -4,5 +4,6 @@
 <br>
 <br>
 <br>
-<h2>If you want to play log in by google. Press button.</h2>
-<button (click)="startGame()">LOGIN</button>
+<h2>Set nickname and click 'START'</h2>
+<input [(ngModel)]="nickname">
+<button (click)="startGame(nickname)" [disabled]="!nickname">Start</button>

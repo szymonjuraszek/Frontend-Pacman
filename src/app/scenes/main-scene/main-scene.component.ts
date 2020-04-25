@@ -1,13 +1,10 @@
 import {Component, Injectable} from '@angular/core';
 import Phaser from 'phaser';
-import Sprite = Phaser.GameObjects.Sprite;
-import {WebsocketService} from '../../websocket/websocket.service';
+import {SocketClientState, WebsocketService} from '../../websocket/websocket.service';
 import {Router} from "@angular/router";
 import {OAuthService} from "angular-oauth2-oidc";
-import {Game} from "../../model/Game";
 import {HttpService} from "../../http/http.service";
 import {Player} from "../../model/Player";
-import List = Phaser.Structs.List;
 
 @Component({
   selector: 'app-main-scene',
@@ -37,31 +34,42 @@ export class MainSceneComponent extends Phaser.Scene {
   private startSendingPlayerPosition = false;
   private counter = 0;
 
-  constructor(private websocketService: WebsocketService, private router: Router, private oauthService: OAuthService,
-              private httpService: HttpService) {
+  constructor(private websocketService: WebsocketService, private router: Router) {
     super({key: 'main'});
+    this.myPlayerName = this.router.getCurrentNavigation().extras.state.nick;
   }
 
-  loadDataAboutGames() {
+  startGame() {
     this.websocketService.initializeWebSocketConnection();
-    setTimeout(() => {
-      this.httpService.addPlayer().subscribe(data => {
-        console.error('Dodalem uzytkownika do gry!');
-      });
-    }, 3000);
+
+    this.websocketService.getState().subscribe(state => {
+      if (state === SocketClientState.CONNECTED) {
+        this.websocketService.getIfJoinGame().subscribe(nickname => {
+          console.error(nickname);
+          if(this.myPlayerName === nickname) {
+            this.cleanAndBackToHomePage();
+            console.error('Juz taki nick istnieje nie mozna dolaczyc!');
+          }
+
+        })
+        this.websocketService.joinGame(this.myPlayerName);
+        console.error('Nawiazalem polaczenie websocket i dodalem uzytkownika!');
+      } else if (state === SocketClientState.ERROR) {
+        console.error('Nie udalo sie nawiazac polaczenia websocket z serwerem!');
+        this.cleanAndBackToHomePage();
+      } else {
+        console.error('Probuje nawiazac polaczenie!')
+      }
+    })
   }
 
   managePlayersInGame() {
     this.websocketService.getPlayersToAdd().subscribe((playersToAdd: Array<Player>) => {
-      if (!this.myPlayerName) {
-        this.myPlayerName = JSON.parse(sessionStorage.getItem('id_token_claims_obj')).email;
-      }
-
       console.error('Nazywam sie: ' + this.myPlayerName);
 
       for (const player of playersToAdd) {
         if (!this.players.has(player.nickname)) {
-          if(player.nickname !== this.myPlayerName) {
+          if (player.nickname !== this.myPlayerName) {
             this.players.set(player.nickname, this.physics.add.sprite(player.positionX, player.positionY, 'other-player'));
           } else {
             this.players.set(player.nickname, this.physics.add.sprite(player.positionX, player.positionY, 'my-player'));
@@ -73,7 +81,7 @@ export class MainSceneComponent extends Phaser.Scene {
     });
 
     this.websocketService.getPlayerToRemove().subscribe((playerToRemove: Player) => {
-      if(playerToRemove.nickname === this.myPlayerName) {
+      if (playerToRemove.nickname === this.myPlayerName) {
         this.cleanAndBackToHomePage();
       }
       this.players.get(playerToRemove.nickname).destroy(true);
@@ -81,7 +89,6 @@ export class MainSceneComponent extends Phaser.Scene {
     });
 
     this.websocketService.getPlayerToUpdate().subscribe((player) => {
-      console.error(player);
       this.players.get(player.nickname).x = player.positionX;
       this.players.get(player.nickname).y = player.positionY;
     })
@@ -89,18 +96,17 @@ export class MainSceneComponent extends Phaser.Scene {
 
   manageMonstersInGame() {
     this.websocketService.getMonsterToUpdate().subscribe((monsterToUpdate) => {
-      // console.error(monsterToUpdate)
-      if(this.monsters.has(monsterToUpdate.id)) {
+      if (this.monsters.has(monsterToUpdate.id)) {
         this.monsters.get(monsterToUpdate.id).x = monsterToUpdate.positionX;
         this.monsters.get(monsterToUpdate.id).y = monsterToUpdate.positionY;
       } else {
-          this.monsters.set(monsterToUpdate.id, this.physics.add.sprite(monsterToUpdate.positionX, monsterToUpdate.positionY, 'monster'));
+        this.monsters.set(monsterToUpdate.id, this.physics.add.sprite(monsterToUpdate.positionX, monsterToUpdate.positionY, 'monster'));
       }
     })
   }
 
   create() {
-    this.loadDataAboutGames();
+    this.startGame();
 
     this.managePlayersInGame();
     this.manageMonstersInGame();
@@ -143,10 +149,10 @@ export class MainSceneComponent extends Phaser.Scene {
   update() {
     console.log('Scena GRA');
 
-    this.counter++;
+    // this.counter++;
     if (this.startSendingPlayerPosition) {
       this.movePlayerManager();
-      this.counter = 0;
+      // this.counter = 0;
     }
   }
 
@@ -165,19 +171,18 @@ export class MainSceneComponent extends Phaser.Scene {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   switchScene() {
-    this.httpService.logout().subscribe((data) => {
-      console.error(data);
+    this.websocketService.quitGame(this.myPlayerName);
+    this.websocketService.getExitGame().subscribe(ifRemove => {
+      if(ifRemove) {
+        console.error('Usunieto poprawnie uzytkownika z gry!')
+      }
+      this.websocketService.disconnect();
       this.cleanAndBackToHomePage();
-    })
-
+    });
   }
 
   cleanAndBackToHomePage() {
-    this.websocketService.disconnect();
-    if (sessionStorage.getItem('access_token') && sessionStorage.getItem('access_token')) {
-      this.oauthService.logOut();
-    }
-
+    this.myPlayerName = '';
     this.game.destroy(true);
     this.game.scene.remove('main');
     document.getElementsByTagName('canvas').item(0).remove();
