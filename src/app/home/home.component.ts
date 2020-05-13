@@ -9,8 +9,12 @@ import {Router} from "@angular/router";
 export class HomeComponent {
 
   public nickname: string;
+  public answer: string;
 
   constructor(private router: Router) {
+    if(this.router.getCurrentNavigation().extras.state) {
+      this.answer = this.router.getCurrentNavigation().extras.state.nick;
+    }
   }
 
   startGame(nickname: string) {

@@ -3,9 +3,6 @@ import * as Stomp from 'stompjs';
 import * as SockJS from 'sockjs-client';
 import {BehaviorSubject, Subject} from "rxjs";
 import {Player} from "../model/Player";
-import {Game} from "../model/Game";
-import Sprite = Phaser.GameObjects.Sprite;
-import List = Phaser.Structs.List;
 import {Monster} from "../model/Monster";
 
 @Injectable()
@@ -18,8 +15,8 @@ export class WebsocketService {
   private playerToRemove = new Subject<Player>();
   private playerToUpdate = new Subject<Player>();
   private monsterToUpdate = new Subject<Monster>();
-  private exitGame = new Subject<Boolean>();
-  private ifJoinGame = new Subject<string>();
+  private ifJoinGame = new Subject<any>();
+  private updateMap = new Subject<string>();
 
   constructor() {}
 
@@ -29,6 +26,8 @@ export class WebsocketService {
     this.state = new BehaviorSubject<SocketClientState>(SocketClientState.ATTEMPTING);
 
     this.stompClient.connect({}, (frame) => {
+
+      // console.error(frame);
       this.stompClient.subscribe('/pacman/add/players', (gameToAddPlayer) => {
           this.playersToAdd.next(JSON.parse(gameToAddPlayer.body));
           console.error('Zaktualizowano gre, dodano gracza');
@@ -40,8 +39,8 @@ export class WebsocketService {
       });
 
       this.stompClient.subscribe('/pacman/update/player', (playerToUpdate) => {
+        // console.error(playerToUpdate)
         if (playerToUpdate.body) {
-          // console.error(playerToUpdate.body);
           this.playerToUpdate.next(JSON.parse(playerToUpdate.body));
         }
       });
@@ -52,13 +51,20 @@ export class WebsocketService {
         }
       });
 
-      this.stompClient.subscribe('/pacman/exit/game', (ifRemove) => {
-        this.exitGame.next(JSON.parse(ifRemove.body));
-        console.error('Wychodze z gry!');
+      this.stompClient.subscribe('/pacman/update/map', (updateCommand) => {
+        if(updateCommand.body == 'UPDATE') {
+          this.updateMap.next(updateCommand);
+        } else {
+          console.error('Error nie mozna updatowac monet')
+        }
       });
 
-      this.stompClient.subscribe('/pacman/join/game', (playerNickname) => {
-        this.ifJoinGame.next(playerNickname.body);
+      this.stompClient.subscribe('/user/queue/reply', (currentCoinPosition) => {
+        // console.error('wyswietlam obecne pozycje monet ' + currentCoinPosition);
+        this.ifJoinGame.next(JSON.parse(currentCoinPosition.body));
+      });
+
+      this.stompClient.subscribe('/pacman/collision/update', (allCoinPosition: string) => {
       });
 
       this.state.next(SocketClientState.CONNECTED);
@@ -72,20 +78,21 @@ export class WebsocketService {
     this.stompClient.disconnect();
   }
 
-  sendPosition(x: number, y: number, nickname: string) {
+  sendPosition(x: number, y: number, nickname: string, score: number) {
     this.stompClient.send('/app/send/position', {},JSON.stringify({
       "nickname": nickname,
       "positionX": x,
-      "positionY": y
+      "positionY": y,
+      "score": score
     }));
   }
 
-  quitGame(nickname: string) {
-    this.stompClient.send('/app/exit/game', {},nickname);
+  joinToGame(nickname: string) {
+    this.stompClient.send('/app/join/game', {}, nickname);
   }
 
-  joinGame(nickname: string) {
-    this.stompClient.send('/app/join/game', {},nickname);
+  addPlayer(nickname: string) {
+    this.stompClient.send('/app/add/player', {}, nickname);
   }
 
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -110,12 +117,12 @@ export class WebsocketService {
     return this.monsterToUpdate.asObservable();
   }
 
-  getExitGame() {
-    return this.exitGame.asObservable();
-  }
-
   getIfJoinGame() {
     return this.ifJoinGame.asObservable();
+  }
+
+  getUpdateMap() {
+    return this.updateMap.asObservable();
   }
 }
 

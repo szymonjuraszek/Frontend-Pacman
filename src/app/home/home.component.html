@@ -7,3 +7,6 @@
 <h2>Set nickname and click 'START'</h2>
 <input [(ngModel)]="nickname">
 <button (click)="startGame(nickname)" [disabled]="!nickname">Start</button>
+
+<br><br><br><br>
+<h4 *ngIf="answer">Nie udalo sie zalogowac bo istnieje juz uzytkownik o nick: {{answer}}</h4>

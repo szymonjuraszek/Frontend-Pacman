@@ -27,6 +27,10 @@ export class GameComponent implements OnInit {
         arcade: {
           gravity: {y: 0}
         }
+      },
+      fps: {
+        target: 10,
+        forceSetTimeOut: true
       }
     };
 
@@ -42,6 +46,4 @@ export class GameComponent implements OnInit {
 
       console.error('Completed Initialization Game Object');
     }
-
-
 }
