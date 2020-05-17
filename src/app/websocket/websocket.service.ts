@@ -88,11 +88,15 @@ export class WebsocketService {
   }
 
   joinToGame(nickname: string) {
-    this.stompClient.send('/app/join/game', {}, nickname);
+    this.stompClient.send('/app/join/game', {}, JSON.stringify({
+      "nickname": nickname
+    }));
   }
 
   addPlayer(nickname: string) {
-    this.stompClient.send('/app/add/player', {}, nickname);
+    this.stompClient.send('/app/add/player', {}, JSON.stringify({
+      "nickname": nickname
+    }));
   }
 
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

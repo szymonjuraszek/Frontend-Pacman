@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 
-export class Player extends Phaser.Physics.Arcade.Sprite {
+export class Player extends Phaser.Physics.Arcade.Sprite{
     public nickname: string;
     private _positionX: number;
     private _positionY: number;

@@ -29,6 +29,7 @@ export class MainSceneComponent extends Phaser.Scene {
 
     private players: Map<string, any> = new Map<string, Player>();
     private monsters: Map<number, Phaser.GameObjects.Sprite> = new Map<number, Phaser.GameObjects.Sprite>();
+    private rank = new Array<Player>();
     private myPlayerName: string;
 
     private startSendingPlayerPosition = false;
@@ -41,7 +42,11 @@ export class MainSceneComponent extends Phaser.Scene {
     private subscription6: Subscription;
 
     private coins: StaticGroup;
-    private scoreText: any;
+    private yourScore: any;
+    private scoreRanking: Map<string, any> = new Map<string, any>();
+    private scoreNumber1: any;
+    private scoreNumber2: any;
+    private scoreNumber3: any;
 
     constructor(private websocketService: WebsocketService, private router: Router, private elementRef: ElementRef) {
         super({key: 'main'});
@@ -134,6 +139,22 @@ export class MainSceneComponent extends Phaser.Scene {
 
         this.coins = this.physics.add.staticGroup()
 
+        this.scoreNumber1 = this.add.text(800, 32, 'NO_ONE', {
+            font: "32px Arial",
+            fill: "#0022ff",
+            align: "center"
+        });
+        this.scoreNumber2 = this.add.text(1200, 32, 'NO_ONE', {
+            font: "32px Arial",
+            fill: "#0022ff",
+            align: "center"
+        });
+        this.scoreNumber3 = this.add.text(400, 32, 'NO_ONE', {
+            font: "32px Arial",
+            fill: "#0022ff",
+            align: "center"
+        });
+
         console.error('Completed Board');
     }
 
@@ -165,19 +186,33 @@ export class MainSceneComponent extends Phaser.Scene {
     managePlayersInGame() {
         this.subscription3 = this.websocketService.getPlayersToAdd().subscribe((playersToAdd: Array<Player>) => {
             console.error('Nazywam sie: ' + this.myPlayerName);
+            playersToAdd.sort((a, b) => {
+                return b.score - a.score
+            });
 
+            this.rank.length = 4;
+            this.scoreNumber1.setText("NO_ONE");
+            this.scoreNumber2.setText("NO_ONE");
+            this.scoreNumber3.setText("NO_ONE");
+            let counter = 0;
             for (const player of playersToAdd) {
+                counter++;
+                if (counter < 4) {
+                    this.rank[counter - 1] = player
+                    this.setScoreText(counter, player);
+                }
+
                 if (!this.players.has(player.nickname)) {
                     if (player.nickname !== this.myPlayerName) {
-                        this.players.set(player.nickname, new Player(this.load.scene, player.positionX, player.positionY, 'other-player',  player.score));
+                        this.players.set(player.nickname, new Player(this.load.scene, player.positionX, player.positionY, 'other-player', player.score));
                         this.physics.add.overlap(this.players.get(player.nickname), this.coins, this.collectCoin, null, this);
                     } else {
                         this.players.set(player.nickname, new Player(this.load.scene, player.positionX, player.positionY, 'my-player', player.score));
                         this.physics.add.overlap(this.players.get(player.nickname), this.coins, this.collectCoin, null, this);
 
                         this.startSendingPlayerPosition = true;
-                        this.scoreText = this.add.text(32, 32, this.myPlayerName + " wynik: " + player.score, {
-                            font: "65px Arial",
+                        this.yourScore = this.add.text(32, 32, this.myPlayerName + " score: " + player.score, {
+                            font: "50px Arial",
                             fill: "#ff0044",
                             align: "center"
                         });
@@ -187,6 +222,8 @@ export class MainSceneComponent extends Phaser.Scene {
         });
 
         this.subscription4 = this.websocketService.getPlayerToRemove().subscribe((playerToRemove: Player) => {
+            this.rank = this.rank.filter(item => item.nickname !== playerToRemove.nickname);
+            console.error("Po srpawdzeniu rankingu")
             if (playerToRemove.nickname === this.myPlayerName) {
                 this.cleanAndBackToHomePage();
             }
@@ -195,11 +232,48 @@ export class MainSceneComponent extends Phaser.Scene {
         });
 
         this.subscription5 = this.websocketService.getPlayerToUpdate().subscribe((player) => {
-            this.changeAnimationFrameForOtherPlayers(player);
-            this.players.get(player.nickname).x = player.positionX;
-            this.players.get(player.nickname).y = player.positionY;
-            this.players.get(player.nickname).score = player.score;
-            this.scoreText.setText(this.myPlayerName + " wynik: " + this.players.get(this.myPlayerName).score)
+            let currentPlayer: Player = this.players.get(player.nickname);
+            this.changeAnimationFrameForOtherPlayers(player, currentPlayer);
+            currentPlayer.x = player.positionX;
+            currentPlayer.y = player.positionY;
+            currentPlayer.score = player.score;
+            this.yourScore.setText(this.myPlayerName + " score: " + this.players.get(this.myPlayerName).score)
+            this.checkRanking(player);
+        })
+    }
+
+    setScoreText(number, player) {
+        switch (number) {
+            case 1: {
+                this.scoreNumber1.setText(player.nickname + " score: " + player.score);
+                this.scoreRanking.set(player.nickname, this.scoreNumber1);
+                this.scoreNumber2.setText("NO_ONE");
+                this.scoreNumber3.setText("NO_ONE");
+                break;
+            }
+            case 2: {
+                this.scoreNumber2.setText(player.nickname + " score: " + player.score);
+                this.scoreRanking.set(player.nickname, this.scoreNumber2);
+                this.scoreNumber3.setText("NO_ONE");
+                break;
+            }
+            case 3: {
+                this.scoreNumber3.setText(player.nickname + " score: " + player.score);
+                this.scoreRanking.set(player.nickname, this.scoreNumber3);
+                break;
+            }
+        }
+    }
+
+    checkRanking(player) {
+        this.rank[3] = player;
+        this.rank.sort((a, b) => b.score - a.score)
+        this.rank = this.rank.filter((v, i) => this.rank.findIndex(item => item.nickname == v.nickname) === i);
+
+        let counter = 1
+        this.rank.forEach(element => {
+            this.setScoreText(counter, element);
+            counter++;
         })
     }
 
@@ -302,26 +376,26 @@ export class MainSceneComponent extends Phaser.Scene {
         });
     }
 
-    changeAnimationFrameForOtherPlayers(playerToUpdate) {
+    changeAnimationFrameForOtherPlayers(playerToUpdate, currentPlayer) {
         if (this.myPlayerName !== playerToUpdate.nickname) {
-            if (this.players.get(playerToUpdate.nickname).x < playerToUpdate.positionX) {
-                if (this.players.get(playerToUpdate.nickname).anims.getCurrentKey() !== 'enemyRight') {
-                    this.players.get(playerToUpdate.nickname).anims.play('enemyRight')
+            if (currentPlayer.x < playerToUpdate.positionX) {
+                if (currentPlayer.anims.getCurrentKey() !== 'enemyRight') {
+                    currentPlayer.anims.play('enemyRight')
                 }
             }
-            if (this.players.get(playerToUpdate.nickname).x > playerToUpdate.positionX) {
-                if (this.players.get(playerToUpdate.nickname).anims.getCurrentKey() !== 'enemyLeft') {
-                    this.players.get(playerToUpdate.nickname).anims.play('enemyLeft')
+            if (currentPlayer.x > playerToUpdate.positionX) {
+                if (currentPlayer.anims.getCurrentKey() !== 'enemyLeft') {
+                    currentPlayer.anims.play('enemyLeft')
                 }
             }
-            if (this.players.get(playerToUpdate.nickname).y < playerToUpdate.positionY) {
-                if (this.players.get(playerToUpdate.nickname).anims.getCurrentKey() !== 'enemyDown') {
-                    this.players.get(playerToUpdate.nickname).anims.play('enemyDown')
+            if (currentPlayer.y < playerToUpdate.positionY) {
+                if (currentPlayer.anims.getCurrentKey() !== 'enemyDown') {
+                    currentPlayer.anims.play('enemyDown')
                 }
             }
-            if (this.players.get(playerToUpdate.nickname).y > playerToUpdate.positionY) {
-                if (this.players.get(playerToUpdate.nickname).anims.getCurrentKey() !== 'enemyUp') {
-                    this.players.get(playerToUpdate.nickname).anims.play('enemyUp')
+            if (currentPlayer.y > playerToUpdate.positionY) {
+                if (currentPlayer.anims.getCurrentKey() !== 'enemyUp') {
+                    currentPlayer.anims.play('enemyUp')
                 }
             }
         }
