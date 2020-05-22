@@ -4,6 +4,7 @@ import * as SockJS from 'sockjs-client';
 import {BehaviorSubject, Subject} from "rxjs";
 import {Player} from "../model/Player";
 import {Monster} from "../model/Monster";
+import {MeasurementService} from "../cache/measurement.service";
 
 @Injectable()
 export class WebsocketService {
@@ -17,8 +18,10 @@ export class WebsocketService {
   private monsterToUpdate = new Subject<Monster>();
   private ifJoinGame = new Subject<any>();
   private updateMap = new Subject<string>();
+  private counter =0;
+  private sth= "";
 
-  constructor() {}
+  constructor(private measurementService: MeasurementService) {}
 
   initializeWebSocketConnection() {
     const ws = new SockJS(this.serverUrl);
@@ -39,9 +42,14 @@ export class WebsocketService {
       });
 
       this.stompClient.subscribe('/pacman/update/player', (playerToUpdate) => {
-        // console.error(playerToUpdate)
+        const responseTimeInMillis = new Date().getTime() - playerToUpdate.headers.timestamp;
+        console.error("Odpowiedz serwera " + responseTimeInMillis + " milliseconds")
+
         if (playerToUpdate.body) {
-          this.playerToUpdate.next(JSON.parse(playerToUpdate.body));
+          const parsedPlayer = JSON.parse(playerToUpdate.body);
+          this.measurementService.addMeasurementResponse(
+              parsedPlayer.nickname, responseTimeInMillis, playerToUpdate.headers.timestamp);
+          this.playerToUpdate.next(parsedPlayer);
         }
       });
 
@@ -73,17 +81,22 @@ export class WebsocketService {
     });
   }
 
+  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
   disconnect() {
     console.error('Disconnected');
     this.stompClient.disconnect();
   }
 
   sendPosition(x: number, y: number, nickname: string, score: number) {
+    // this.counter = this.counter+ 1
+    // this.sth = this.sth + 'aaaaaaa'
     this.stompClient.send('/app/send/position', {},JSON.stringify({
       "nickname": nickname,
       "positionX": x,
       "positionY": y,
-      "score": score
+      "score": score,
+      "requestTimestamp": new Date().getTime()
     }));
   }
 

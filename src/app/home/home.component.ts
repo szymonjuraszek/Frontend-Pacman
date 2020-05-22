@@ -12,6 +12,7 @@ export class HomeComponent {
   public answer: string;
 
   constructor(private router: Router) {
+    console.error('Jestem tu')
     if(this.router.getCurrentNavigation().extras.state) {
       this.answer = this.router.getCurrentNavigation().extras.state.nick;
     }

@@ -26,6 +26,7 @@
     "angular-web-storage": "^9.0.0",
     "angular-webstorage-service": "^1.0.2",
     "express": "^4.17.1",
+    "file-saver": "^2.0.2",
     "net": "^1.0.2",
     "ngx-cookie-service": "latest",
     "phaser": "^3.22.0",
@@ -40,6 +41,7 @@
   "devDependencies": {
     "@angular-devkit/build-angular": "^0.900.7",
     "@angular/language-service": "^9.0.7",
+    "@types/file-saver": "^2.0.1",
     "@types/jasmine": "^3.5.10",
     "@types/jasminewd2": "~2.0.3",
     "@types/node": "^12.12.35",

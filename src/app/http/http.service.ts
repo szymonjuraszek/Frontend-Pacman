@@ -1,6 +1,5 @@
 import {Injectable} from '@angular/core';
-import {HttpClient} from '@angular/common/http';
-import {Observable} from 'rxjs';
+import {HttpClient, HttpHeaders} from '@angular/common/http';
 
 @Injectable()
 export class HttpService {
@@ -8,10 +7,14 @@ export class HttpService {
   constructor(private httpClient: HttpClient) {
   }
 
-  logout(): Observable<any> {
-    return this.httpClient.delete<any>('https://localhost:8080/api/game');
-  }
-  addPlayer() {
-    return this.httpClient.get('https://localhost:8080/api/game');
+  downloadMeasurements() {
+    let headers = new HttpHeaders();
+    headers = headers.append('Accept', 'text/csv; charset=utf-8');
+
+    return this.httpClient.get('https://localhost:8080/report/measurement', {
+      headers: headers,
+      observe: 'response',
+      responseType: 'text'
+    })
   }
 }

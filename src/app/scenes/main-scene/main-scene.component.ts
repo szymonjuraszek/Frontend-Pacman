@@ -5,6 +5,7 @@ import {Router} from "@angular/router";
 import {Player} from "../../model/Player";
 import {Subscription} from "rxjs";
 import StaticGroup = Phaser.Physics.Arcade.StaticGroup;
+import {DownloadService} from "../../downloader/download.service";
 
 @Component({
     selector: 'app-main-scene',
@@ -25,6 +26,7 @@ export class MainSceneComponent extends Phaser.Scene {
     private coin: Phaser.Tilemaps.Tileset;
 
     private exitButton: Phaser.GameObjects.Image;
+    private downloadButton: Phaser.GameObjects.Image;
     private cursorKeys: Phaser.Types.Input.Keyboard.CursorKeys;
 
     private players: Map<string, any> = new Map<string, Player>();
@@ -48,7 +50,12 @@ export class MainSceneComponent extends Phaser.Scene {
     private scoreNumber2: any;
     private scoreNumber3: any;
 
-    constructor(private websocketService: WebsocketService, private router: Router, private elementRef: ElementRef) {
+    constructor(
+        private websocketService: WebsocketService,
+        private router: Router,
+        private elementRef: ElementRef,
+        private downloadService: DownloadService)
+    {
         super({key: 'main'});
 
         if (this.router.getCurrentNavigation().extras.state) {
@@ -102,9 +109,10 @@ export class MainSceneComponent extends Phaser.Scene {
         this.manageMonstersInGame();
 
         console.error('Create Board');
-        this.game.loop.targetFps = 5
-        this.physics.world.setFPS(15)
+        this.game.loop.targetFps = 60
+        this.physics.world.setFPS(200)
         console.error(this.game.loop.actualFps);
+        console.error(this.physics.world.fps);
         this.createAnimationsBySpriteKey('my-player', 'myLeft', 'myRight', 'myDown', 'myUp');
         this.createAnimationsBySpriteKey('other-player', 'enemyLeft', 'enemyRight', 'enemyDown', 'enemyUp');
         this.anims.create({
@@ -130,30 +138,32 @@ export class MainSceneComponent extends Phaser.Scene {
             this.switchScene();
         });
 
-        this.cursorKeys = this.input.keyboard.createCursorKeys();
+        this.downloadButton = this.add.image(this.game.canvas.width - 208, 48, 'download-button');
+        this.downloadButton.setInteractive();
+        this.downloadButton.on('pointerup', () => {
+            this.downloadService.downloadRequestMeasurements();
+            this.downloadService.downloadResponseMeasurements();
+        });
 
-        // this.game.camera.follow(this.players.get(this.myPlayerName));
-        // const camera = new Camera(50,50,200,200);
-        // // this.cameras.add(camera,true);
-        // camera.startFollow(this.players.get(this.myPlayerName));
+        this.cursorKeys = this.input.keyboard.createCursorKeys();
 
         this.coins = this.physics.add.staticGroup()
 
-        this.scoreNumber1 = this.add.text(800, 32, 'NO_ONE', {
-            font: "32px Arial",
-            fill: "#0022ff",
-            align: "center"
-        });
-        this.scoreNumber2 = this.add.text(1200, 32, 'NO_ONE', {
-            font: "32px Arial",
-            fill: "#0022ff",
-            align: "center"
-        });
-        this.scoreNumber3 = this.add.text(400, 32, 'NO_ONE', {
-            font: "32px Arial",
-            fill: "#0022ff",
-            align: "center"
-        });
+        // this.scoreNumber1 = this.add.text(800, 32, 'NO_ONE', {
+        //     font: "32px Arial",
+        //     fill: "#0022ff",
+        //     align: "center"
+        // });
+        // this.scoreNumber2 = this.add.text(1200, 32, 'NO_ONE', {
+        //     font: "32px Arial",
+        //     fill: "#0022ff",
+        //     align: "center"
+        // });
+        // this.scoreNumber3 = this.add.text(400, 32, 'NO_ONE', {
+        //     font: "32px Arial",
+        //     fill: "#0022ff",
+        //     align: "center"
+        // });
 
         console.error('Completed Board');
     }
@@ -163,6 +173,7 @@ export class MainSceneComponent extends Phaser.Scene {
         this.load.image('coin', 'assets/main/images/coin.png');
 
         this.load.image('exit-button', 'assets/main/images/exit-button.png');
+        this.load.image('download-button', 'assets/main/images/download-button.png');
 
         this.load.spritesheet('my-player', 'assets/main/images/my-player.png', {frameWidth: 32, frameHeight: 32});
         this.load.spritesheet('other-player', 'assets/main/images/enemie.png', {frameWidth: 32, frameHeight: 32});
@@ -185,22 +196,22 @@ export class MainSceneComponent extends Phaser.Scene {
 
     managePlayersInGame() {
         this.subscription3 = this.websocketService.getPlayersToAdd().subscribe((playersToAdd: Array<Player>) => {
-            console.error('Nazywam sie: ' + this.myPlayerName);
-            playersToAdd.sort((a, b) => {
-                return b.score - a.score
-            });
-
-            this.rank.length = 4;
-            this.scoreNumber1.setText("NO_ONE");
-            this.scoreNumber2.setText("NO_ONE");
-            this.scoreNumber3.setText("NO_ONE");
-            let counter = 0;
+            // console.error('Nazywam sie: ' + this.myPlayerName);
+            // playersToAdd.sort((a, b) => {
+            //     return b.score - a.score
+            // });
+            //
+            // this.rank.length = 4;
+            // this.scoreNumber1.setText("NO_ONE");
+            // this.scoreNumber2.setText("NO_ONE");
+            // this.scoreNumber3.setText("NO_ONE");
+            // let counter = 0;
             for (const player of playersToAdd) {
-                counter++;
-                if (counter < 4) {
-                    this.rank[counter - 1] = player
-                    this.setScoreText(counter, player);
-                }
+                // counter++;
+                // if (counter < 4) {
+                //     this.rank[counter - 1] = player
+                //     this.setScoreText(counter, player);
+                // }
 
                 if (!this.players.has(player.nickname)) {
                     if (player.nickname !== this.myPlayerName) {
@@ -233,49 +244,49 @@ export class MainSceneComponent extends Phaser.Scene {
 
         this.subscription5 = this.websocketService.getPlayerToUpdate().subscribe((player) => {
             let currentPlayer: Player = this.players.get(player.nickname);
-            this.changeAnimationFrameForOtherPlayers(player, currentPlayer);
+            // this.changeAnimationFrameForOtherPlayers(player, currentPlayer);
             currentPlayer.x = player.positionX;
             currentPlayer.y = player.positionY;
             currentPlayer.score = player.score;
             this.yourScore.setText(this.myPlayerName + " score: " + this.players.get(this.myPlayerName).score)
-            this.checkRanking(player);
+            // this.checkRanking(player);
         })
     }
 
-    setScoreText(number, player) {
-        switch (number) {
-            case 1: {
-                this.scoreNumber1.setText(player.nickname + " score: " + player.score);
-                this.scoreRanking.set(player.nickname, this.scoreNumber1);
-                this.scoreNumber2.setText("NO_ONE");
-                this.scoreNumber3.setText("NO_ONE");
-                break;
-            }
-            case 2: {
-                this.scoreNumber2.setText(player.nickname + " score: " + player.score);
-                this.scoreRanking.set(player.nickname, this.scoreNumber2);
-                this.scoreNumber3.setText("NO_ONE");
-                break;
-            }
-            case 3: {
-                this.scoreNumber3.setText(player.nickname + " score: " + player.score);
-                this.scoreRanking.set(player.nickname, this.scoreNumber3);
-                break;
-            }
-        }
-    }
+    // setScoreText(number, player) {
+    //     switch (number) {
+    //         case 1: {
+    //             this.scoreNumber1.setText(player.nickname + " score: " + player.score);
+    //             this.scoreRanking.set(player.nickname, this.scoreNumber1);
+    //             this.scoreNumber2.setText("NO_ONE");
+    //             this.scoreNumber3.setText("NO_ONE");
+    //             break;
+    //         }
+    //         case 2: {
+    //             this.scoreNumber2.setText(player.nickname + " score: " + player.score);
+    //             this.scoreRanking.set(player.nickname, this.scoreNumber2);
+    //             this.scoreNumber3.setText("NO_ONE");
+    //             break;
+    //         }
+    //         case 3: {
+    //             this.scoreNumber3.setText(player.nickname + " score: " + player.score);
+    //             this.scoreRanking.set(player.nickname, this.scoreNumber3);
+    //             break;
+    //         }
+    //     }
+    // }
 
-    checkRanking(player) {
-        this.rank[3] = player;
-        this.rank.sort((a, b) => b.score - a.score)
-        this.rank = this.rank.filter((v, i) => this.rank.findIndex(item => item.nickname == v.nickname) === i);
-
-        let counter = 1
-        this.rank.forEach(element => {
-            this.setScoreText(counter, element);
-            counter++;
-        })
-    }
+    // checkRanking(player) {
+    //     this.rank[3] = player;
+    //     this.rank.sort((a, b) => b.score - a.score)
+    //     this.rank = this.rank.filter((v, i) => this.rank.findIndex(item => item.nickname == v.nickname) === i);
+    //
+    //     let counter = 1
+    //     this.rank.forEach(element => {
+    //         this.setScoreText(counter, element);
+    //         counter++;
+    //     })
+    // }
 
     movePlayerManager() {
         if (this.cursorKeys.left.isDown === true) {
@@ -376,28 +387,28 @@ export class MainSceneComponent extends Phaser.Scene {
         });
     }
 
-    changeAnimationFrameForOtherPlayers(playerToUpdate, currentPlayer) {
-        if (this.myPlayerName !== playerToUpdate.nickname) {
-            if (currentPlayer.x < playerToUpdate.positionX) {
-                if (currentPlayer.anims.getCurrentKey() !== 'enemyRight') {
-                    currentPlayer.anims.play('enemyRight')
-                }
-            }
-            if (currentPlayer.x > playerToUpdate.positionX) {
-                if (currentPlayer.anims.getCurrentKey() !== 'enemyLeft') {
-                    currentPlayer.anims.play('enemyLeft')
-                }
-            }
-            if (currentPlayer.y < playerToUpdate.positionY) {
-                if (currentPlayer.anims.getCurrentKey() !== 'enemyDown') {
-                    currentPlayer.anims.play('enemyDown')
-                }
-            }
-            if (currentPlayer.y > playerToUpdate.positionY) {
-                if (currentPlayer.anims.getCurrentKey() !== 'enemyUp') {
-                    currentPlayer.anims.play('enemyUp')
-                }
-            }
-        }
-    }
+    // changeAnimationFrameForOtherPlayers(playerToUpdate, currentPlayer) {
+    //     if (this.myPlayerName !== playerToUpdate.nickname) {
+    //         if (currentPlayer.x < playerToUpdate.positionX) {
+    //             if (currentPlayer.anims.getCurrentKey() !== 'enemyRight') {
+    //                 currentPlayer.anims.play('enemyRight')
+    //             }
+    //         }
+    //         if (currentPlayer.x > playerToUpdate.positionX) {
+    //             if (currentPlayer.anims.getCurrentKey() !== 'enemyLeft') {
+    //                 currentPlayer.anims.play('enemyLeft')
+    //             }
+    //         }
+    //         if (currentPlayer.y < playerToUpdate.positionY) {
+    //             if (currentPlayer.anims.getCurrentKey() !== 'enemyDown') {
+    //                 currentPlayer.anims.play('enemyDown')
+    //             }
+    //         }
+    //         if (currentPlayer.y > playerToUpdate.positionY) {
+    //             if (currentPlayer.anims.getCurrentKey() !== 'enemyUp') {
+    //                 currentPlayer.anims.play('enemyUp')
+    //             }
+    //         }
+    //     }
+    // }
 }

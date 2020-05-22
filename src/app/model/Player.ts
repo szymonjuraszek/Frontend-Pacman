@@ -8,7 +8,6 @@ export class Player extends Phaser.Physics.Arcade.Sprite{
 
     constructor(scene: Phaser.Scene, x: number, y: number, texture: string, score: number) {
         super(scene, x, y, texture);
-        console.error('Tworze gracza w konstruktorze!')
         scene.add.existing(this);
         scene.physics.add.existing(this);
         this._score = score;
