@@ -6,21 +6,16 @@ import {MeasurementResponse} from "../model/MeasurementResponse";
 })
 export class MeasurementService {
 
-    private measurements: Array<MeasurementResponse>
-
-    constructor() {
-        this.measurements = new Array<MeasurementResponse>();
-    }
+    private readonly measurements = new Array<MeasurementResponse>();
 
     addMeasurementResponse(nickname, responseTimeInMillis, responseTimestamp) {
-        this.measurements.push(new MeasurementResponse(nickname,responseTimeInMillis,responseTimestamp))
+        if (this.measurements.length > 1999) {
+            this.measurements.splice(0, 1);
+        }
+        this.measurements.push(new MeasurementResponse(nickname, responseTimeInMillis, responseTimestamp))
     }
 
     getResponseMeasurements(): Array<MeasurementResponse> {
         return this.measurements;
-    }
-
-    clearCache() {
-        this.measurements.length = 0;
     }
 }

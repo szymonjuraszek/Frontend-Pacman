@@ -22,7 +22,6 @@ export class DownloadService {
 
     downloadResponseMeasurements() {
         this.downloadResponseFile(this.cacheMeasurement.getResponseMeasurements());
-        this.cacheMeasurement.clearCache();
     }
 
     private downloadRequestFile(data) {
