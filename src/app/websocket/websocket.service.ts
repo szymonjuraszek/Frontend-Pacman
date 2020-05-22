@@ -8,9 +8,12 @@ import {MeasurementService} from "../cache/measurement.service";
 
 @Injectable()
 export class WebsocketService {
-  private serverUrl = 'https://localhost:8080/socket';
+  private serverUrl = 'https://backend-pacman-app.herokuapp.com/socket';
   private state: BehaviorSubject<SocketClientState>;
   private stompClient;
+
+  // 'https://backend-pacman-app.herokuapp.com/socket'
+  // 'https://localhost:8080/socket'
 
   private playersToAdd = new Subject<Array<Player>>();
   private playerToRemove = new Subject<Player>();
