@@ -11,7 +11,7 @@ export class HttpService {
     let headers = new HttpHeaders();
     headers = headers.append('Accept', 'text/csv; charset=utf-8');
 
-    return this.httpClient.get('https://localhost:8080/report/measurement', {
+    return this.httpClient.get('https://pacman-application.herokuapp.com/report/measurement', {
       headers: headers,
       observe: 'response',
       responseType: 'text'

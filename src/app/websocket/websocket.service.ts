@@ -8,7 +8,7 @@ import {MeasurementService} from "../cache/measurement.service";
 
 @Injectable()
 export class WebsocketService {
-  private serverUrl = 'https://backend-pacman-app.herokuapp.com/socket';
+  private serverUrl = 'https://pacman-application.herokuapp.com/socket';
   private state: BehaviorSubject<SocketClientState>;
   private stompClient;
 

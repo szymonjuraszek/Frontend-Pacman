@@ -29,7 +29,7 @@ export class GameComponent implements OnInit {
         }
       },
       fps: {
-        target: 50,
+        target: 10,
         forceSetTimeOut: true
       }
     };

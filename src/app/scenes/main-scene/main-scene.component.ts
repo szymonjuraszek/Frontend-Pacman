@@ -109,8 +109,8 @@ export class MainSceneComponent extends Phaser.Scene {
         this.manageMonstersInGame();
 
         console.error('Create Board');
-        this.game.loop.targetFps = 60
-        this.physics.world.setFPS(200)
+        this.game.loop.targetFps = 20
+        this.physics.world.setFPS(40)
         console.error(this.game.loop.actualFps);
         console.error(this.physics.world.fps);
         this.createAnimationsBySpriteKey('my-player', 'myLeft', 'myRight', 'myDown', 'myUp');
@@ -244,7 +244,7 @@ export class MainSceneComponent extends Phaser.Scene {
 
         this.subscription5 = this.websocketService.getPlayerToUpdate().subscribe((player) => {
             let currentPlayer: Player = this.players.get(player.nickname);
-            // this.changeAnimationFrameForOtherPlayers(player, currentPlayer);
+            this.changeAnimationFrameForOtherPlayers(player, currentPlayer);
             currentPlayer.x = player.positionX;
             currentPlayer.y = player.positionY;
             currentPlayer.score = player.score;
@@ -387,28 +387,28 @@ export class MainSceneComponent extends Phaser.Scene {
         });
     }
 
-    // changeAnimationFrameForOtherPlayers(playerToUpdate, currentPlayer) {
-    //     if (this.myPlayerName !== playerToUpdate.nickname) {
-    //         if (currentPlayer.x < playerToUpdate.positionX) {
-    //             if (currentPlayer.anims.getCurrentKey() !== 'enemyRight') {
-    //                 currentPlayer.anims.play('enemyRight')
-    //             }
-    //         }
-    //         if (currentPlayer.x > playerToUpdate.positionX) {
-    //             if (currentPlayer.anims.getCurrentKey() !== 'enemyLeft') {
-    //                 currentPlayer.anims.play('enemyLeft')
-    //             }
-    //         }
-    //         if (currentPlayer.y < playerToUpdate.positionY) {
-    //             if (currentPlayer.anims.getCurrentKey() !== 'enemyDown') {
-    //                 currentPlayer.anims.play('enemyDown')
-    //             }
-    //         }
-    //         if (currentPlayer.y > playerToUpdate.positionY) {
-    //             if (currentPlayer.anims.getCurrentKey() !== 'enemyUp') {
-    //                 currentPlayer.anims.play('enemyUp')
-    //             }
-    //         }
-    //     }
-    // }
+    changeAnimationFrameForOtherPlayers(playerToUpdate, currentPlayer) {
+        if (this.myPlayerName !== playerToUpdate.nickname) {
+            if (currentPlayer.x < playerToUpdate.positionX) {
+                if (currentPlayer.anims.getCurrentKey() !== 'enemyRight') {
+                    currentPlayer.anims.play('enemyRight')
+                }
+            }
+            if (currentPlayer.x > playerToUpdate.positionX) {
+                if (currentPlayer.anims.getCurrentKey() !== 'enemyLeft') {
+                    currentPlayer.anims.play('enemyLeft')
+                }
+            }
+            if (currentPlayer.y < playerToUpdate.positionY) {
+                if (currentPlayer.anims.getCurrentKey() !== 'enemyDown') {
+                    currentPlayer.anims.play('enemyDown')
+                }
+            }
+            if (currentPlayer.y > playerToUpdate.positionY) {
+                if (currentPlayer.anims.getCurrentKey() !== 'enemyUp') {
+                    currentPlayer.anims.play('enemyUp')
+                }
+            }
+        }
+    }
 }
