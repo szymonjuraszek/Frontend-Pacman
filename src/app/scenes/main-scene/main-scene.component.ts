@@ -16,10 +16,13 @@ import {DownloadService} from "../../downloader/download.service";
     providedIn: 'root',
 })
 export class MainSceneComponent extends Phaser.Scene {
+    get backgroundLayer(): Phaser.Tilemaps.DynamicTilemapLayer {
+        return this._backgroundLayer;
+    }
     private board: Phaser.Tilemaps.Tilemap;
 
     private pathLayer: Phaser.Tilemaps.DynamicTilemapLayer;
-    private backgroundLayer: Phaser.Tilemaps.DynamicTilemapLayer;
+    private _backgroundLayer: Phaser.Tilemaps.DynamicTilemapLayer;
     private coinLayer: Phaser.Types.Tilemaps.TiledObject[];
 
     private pacmanObjects: Phaser.Tilemaps.Tileset;
@@ -54,8 +57,7 @@ export class MainSceneComponent extends Phaser.Scene {
         private websocketService: WebsocketService,
         private router: Router,
         private elementRef: ElementRef,
-        private downloadService: DownloadService)
-    {
+        private downloadService: DownloadService) {
         super({key: 'main'});
 
         if (this.router.getCurrentNavigation().extras.state) {
@@ -129,7 +131,7 @@ export class MainSceneComponent extends Phaser.Scene {
         this.coin = this.board.addTilesetImage('coin');
 
         this.pathLayer = this.board.createDynamicLayer('path', [this.pacmanObjects], 0, 0);
-        this.backgroundLayer = this.board.createDynamicLayer('background_main', [this.pacmanObjects], 0, 0);
+        this._backgroundLayer = this.board.createDynamicLayer('background_main', [this.pacmanObjects], 0, 0);
         this.coinLayer = this.board.getObjectLayer('objectLayer')['objects'];
 
         this.exitButton = this.add.image(this.game.canvas.width - 48, 48, 'exit-button');
@@ -144,6 +146,9 @@ export class MainSceneComponent extends Phaser.Scene {
             this.downloadService.downloadRequestMeasurements();
             this.downloadService.downloadResponseMeasurements();
         });
+
+        // Dodanie kolizji dla elementow warstwy background o id od 150 do 250 (te id znajduja sie w tileset ktory sklada sie na te warstwe)
+        this._backgroundLayer.setCollisionBetween(140,250);
 
         this.cursorKeys = this.input.keyboard.createCursorKeys();
 
@@ -215,10 +220,10 @@ export class MainSceneComponent extends Phaser.Scene {
 
                 if (!this.players.has(player.nickname)) {
                     if (player.nickname !== this.myPlayerName) {
-                        this.players.set(player.nickname, new Player(this.load.scene, player.positionX, player.positionY, 'other-player', player.score));
+                        this.players.set(player.nickname, new Player(this, player.positionX, player.positionY, 'other-player', player.score));
                         this.physics.add.overlap(this.players.get(player.nickname), this.coins, this.collectCoin, null, this);
                     } else {
-                        this.players.set(player.nickname, new Player(this.load.scene, player.positionX, player.positionY, 'my-player', player.score));
+                        this.players.set(player.nickname, new Player(this, player.positionX, player.positionY, 'my-player', player.score));
                         this.physics.add.overlap(this.players.get(player.nickname), this.coins, this.collectCoin, null, this);
 
                         this.startSendingPlayerPosition = true;
@@ -251,6 +256,10 @@ export class MainSceneComponent extends Phaser.Scene {
             this.yourScore.setText(this.myPlayerName + " score: " + this.players.get(this.myPlayerName).score)
             // this.checkRanking(player);
         })
+    }
+
+    example() {
+        console.error("KOLIZJA!!!!!!!!!!!!!!!!!")
     }
 
     // setScoreText(number, player) {
@@ -290,26 +299,33 @@ export class MainSceneComponent extends Phaser.Scene {
 
     movePlayerManager() {
         if (this.cursorKeys.left.isDown === true) {
-            this.websocketService.sendPosition(this.players.get(this.myPlayerName).x - 32, this.players.get(this.myPlayerName).y, this.myPlayerName, this.players.get(this.myPlayerName).score);
+            this.players.get(this.myPlayerName).setVelocity(-100, 0);
+            // this.websocketService.sendPosition(this.players.get(this.myPlayerName).x, this.players.get(this.myPlayerName).y, this.myPlayerName, this.players.get(this.myPlayerName).score);
             if (this.players.get(this.myPlayerName).anims.getCurrentKey() !== 'myLeft') {
                 this.players.get(this.myPlayerName).anims.play('myLeft')
             }
         } else if (this.cursorKeys.right.isDown === true) {
-            this.websocketService.sendPosition(this.players.get(this.myPlayerName).x + 32, this.players.get(this.myPlayerName).y, this.myPlayerName, this.players.get(this.myPlayerName).score);
+            this.players.get(this.myPlayerName).setVelocity(100,0);
+            // this.websocketService.sendPosition(this.players.get(this.myPlayerName).x, this.players.get(this.myPlayerName).y, this.myPlayerName, this.players.get(this.myPlayerName).score);
             if (this.players.get(this.myPlayerName).anims.getCurrentKey() !== 'myRight') {
                 this.players.get(this.myPlayerName).anims.play('myRight')
             }
         } else if (this.cursorKeys.up.isDown === true) {
-            this.websocketService.sendPosition(this.players.get(this.myPlayerName).x, this.players.get(this.myPlayerName).y - 32, this.myPlayerName, this.players.get(this.myPlayerName).score);
+            this.players.get(this.myPlayerName).setVelocity(0,-100);
+            // this.websocketService.sendPosition(this.players.get(this.myPlayerName).x, this.players.get(this.myPlayerName).y, this.myPlayerName, this.players.get(this.myPlayerName).score);
             if (this.players.get(this.myPlayerName).anims.getCurrentKey() !== 'myUp') {
                 this.players.get(this.myPlayerName).anims.play('myUp')
             }
         } else if (this.cursorKeys.down.isDown === true) {
-            this.websocketService.sendPosition(this.players.get(this.myPlayerName).x, this.players.get(this.myPlayerName).y + 32, this.myPlayerName, this.players.get(this.myPlayerName).score);
+            this.players.get(this.myPlayerName).setVelocity(0,100);
+            // this.websocketService.sendPosition(this.players.get(this.myPlayerName).x, this.players.get(this.myPlayerName).y, this.myPlayerName, this.players.get(this.myPlayerName).score);
             if (this.players.get(this.myPlayerName).anims.getCurrentKey() !== 'myDown') {
                 this.players.get(this.myPlayerName).anims.play('myDown')
             }
         }
+        // else {
+        //     this.players.get(this.myPlayerName).setVelocity(0,0);
+        // }
     }
 
     manageMonstersInGame() {
