@@ -6,6 +6,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite{
     private _positionX: number;
     private _positionY: number;
     private _score: number;
+    public static SPEED = 4;
 
     constructor(scene: MainSceneComponent, x: number, y: number, texture: string, score: number) {
         super(scene, x, y, texture);
@@ -18,6 +19,8 @@ export class Player extends Phaser.Physics.Arcade.Sprite{
 
         // Dodanie kolidera na graczu oraz warstwie
         scene.physics.add.collider(this, scene.backgroundLayer);
+
+        // scene.anims.play('myUp');
 
         this._score = score;
     }
