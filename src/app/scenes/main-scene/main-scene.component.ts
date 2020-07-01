@@ -1,14 +1,24 @@
 import {Component, ElementRef, Injectable} from '@angular/core';
 import Phaser from 'phaser';
-import {SocketClientState, WebsocketService} from '../../websocket/websocket.service';
+import {WebsocketService} from '../../communication/websocket/websocket.service';
 import {Router} from "@angular/router";
 import {Player} from "../../model/Player";
-import {Subscription} from "rxjs";
+import {interval, Observable, Subscription} from "rxjs";
 import StaticGroup = Phaser.Physics.Arcade.StaticGroup;
 import {DownloadService} from "../../downloader/download.service";
+import Group = Phaser.Physics.Arcade.Group;
+import {Communicator} from "../../communication/Communicator";
+import {Direction} from "../../communication/Direction";
+import {SocketClientState} from "../../communication/SocketClientState";
 
 @Component({
     selector: 'app-main-scene',
+    providers: [
+        {
+            provide: Communicator,
+            useClass: WebsocketService
+        }
+    ],
     templateUrl: './main-scene.component.html',
     styleUrls: ['./main-scene.component.css']
 })
@@ -16,10 +26,14 @@ import {DownloadService} from "../../downloader/download.service";
     providedIn: 'root',
 })
 export class MainSceneComponent extends Phaser.Scene {
+    get backgroundLayer(): Phaser.Tilemaps.DynamicTilemapLayer {
+        return this._backgroundLayer;
+    }
+
     private board: Phaser.Tilemaps.Tilemap;
 
     private pathLayer: Phaser.Tilemaps.DynamicTilemapLayer;
-    private backgroundLayer: Phaser.Tilemaps.DynamicTilemapLayer;
+    private _backgroundLayer: Phaser.Tilemaps.DynamicTilemapLayer;
     private coinLayer: Phaser.Types.Tilemaps.TiledObject[];
 
     private pacmanObjects: Phaser.Tilemaps.Tileset;
@@ -42,8 +56,11 @@ export class MainSceneComponent extends Phaser.Scene {
     private subscription4: Subscription;
     private subscription5: Subscription;
     private subscription6: Subscription;
+    private positionSender: Observable<number>;
+    private lastX: number;
+    private lastY: number;
 
-    private coins: StaticGroup;
+    private coins: Group;
     private yourScore: any;
     private scoreRanking: Map<string, any> = new Map<string, any>();
     private scoreNumber1: any;
@@ -51,11 +68,10 @@ export class MainSceneComponent extends Phaser.Scene {
     private scoreNumber3: any;
 
     constructor(
-        private websocketService: WebsocketService,
+        private websocketService: Communicator,
         private router: Router,
         private elementRef: ElementRef,
-        private downloadService: DownloadService)
-    {
+        private downloadService: DownloadService) {
         super({key: 'main'});
 
         if (this.router.getCurrentNavigation().extras.state) {
@@ -66,14 +82,17 @@ export class MainSceneComponent extends Phaser.Scene {
     }
 
     startGame() {
-        this.websocketService.initializeWebSocketConnection();
+        this.websocketService.initializeConnection();
 
         this.subscription2 = this.websocketService.getState().subscribe(state => {
             if (state === SocketClientState.CONNECTED) {
                 this.subscription1 = this.websocketService.getIfJoinGame().subscribe((currentCoinPosition) => {
                     if (currentCoinPosition.length > 0) {
                         for (const coinPosition of currentCoinPosition) {
-                            this.coins.create(coinPosition.positionX + 16, coinPosition.positionY - 16, "coin")
+                            const d = this.coins.create((coinPosition.positionX * 32) + 16, (coinPosition.positionY * 32) - 16, "coin", null, true, true);
+                            // var callback = function (d) {
+                            //
+                            // }
                         }
                         this.websocketService.addPlayer(this.myPlayerName);
                     } else if (currentCoinPosition.length === 0) {
@@ -96,14 +115,19 @@ export class MainSceneComponent extends Phaser.Scene {
     create() {
         this.startGame();
 
-        this.websocketService.getUpdateMap().subscribe((updateCommand) => {
+        // Jeszcze trzeba zaimplementowac
+        this.websocketService.getCoinToGet().subscribe((coinToCollect) => {
+        });
+
+        // Jeszcze trzeba zaimplementowac
+        this.websocketService.getRefreshCoins().subscribe((refreshCoinsCommand) => {
             this.coinLayer.forEach(object => {
                 let obj = this.coins.create(object.x + 16, object.y - 16, "coin");
                 obj.setScale(object.width / 32, object.height / 32);
                 obj.body.width = object.width;
                 obj.body.height = object.height;
             });
-        })
+        });
 
         this.managePlayersInGame();
         this.manageMonstersInGame();
@@ -111,10 +135,12 @@ export class MainSceneComponent extends Phaser.Scene {
         console.error('Create Board');
         this.game.loop.targetFps = 20
         this.physics.world.setFPS(40)
-        console.error(this.game.loop.actualFps);
-        console.error(this.physics.world.fps);
-        this.createAnimationsBySpriteKey('my-player', 'myLeft', 'myRight', 'myDown', 'myUp');
-        this.createAnimationsBySpriteKey('other-player', 'enemyLeft', 'enemyRight', 'enemyDown', 'enemyUp');
+        console.error('----------------------- Wyswietlam informacje o grze ----------------------');
+        console.error('FPS actual: ' + this.game.loop.actualFps);
+        console.error('FPS physics.world ' + this.physics.world.fps);
+
+        this.createAnimationsBySpriteKey('my-player', 'myAnim');
+        this.createAnimationsBySpriteKey('other-player', 'enemyAnim');
         this.anims.create({
             key: 'animation',
             frames: this.anims.generateFrameNumbers('monster', {frames: [0, 7]}),
@@ -129,7 +155,7 @@ export class MainSceneComponent extends Phaser.Scene {
         this.coin = this.board.addTilesetImage('coin');
 
         this.pathLayer = this.board.createDynamicLayer('path', [this.pacmanObjects], 0, 0);
-        this.backgroundLayer = this.board.createDynamicLayer('background_main', [this.pacmanObjects], 0, 0);
+        this._backgroundLayer = this.board.createDynamicLayer('background_main', [this.pacmanObjects], 0, 0);
         this.coinLayer = this.board.getObjectLayer('objectLayer')['objects'];
 
         this.exitButton = this.add.image(this.game.canvas.width - 48, 48, 'exit-button');
@@ -145,9 +171,12 @@ export class MainSceneComponent extends Phaser.Scene {
             this.downloadService.downloadResponseMeasurements();
         });
 
+        // Dodanie kolizji dla elementow warstwy background o id od 150 do 250 (te id znajduja sie w tileset ktory sklada sie na te warstwe)
+        this._backgroundLayer.setCollisionBetween(140, 250);
+
         this.cursorKeys = this.input.keyboard.createCursorKeys();
 
-        this.coins = this.physics.add.staticGroup()
+        this.coins = this.physics.add.group();
 
         // this.scoreNumber1 = this.add.text(800, 32, 'NO_ONE', {
         //     font: "32px Arial",
@@ -164,6 +193,11 @@ export class MainSceneComponent extends Phaser.Scene {
         //     fill: "#0022ff",
         //     align: "center"
         // });
+
+        this.coins.removeCallback = function () {
+            console.error('Remove callback')
+        }
+
 
         console.error('Completed Board');
     }
@@ -190,6 +224,8 @@ export class MainSceneComponent extends Phaser.Scene {
     }
 
     collectCoin(player: Player, coin) {
+        // console.error(coin);
+
         coin.destroy(coin.x, coin.y);
         return false;
     }
@@ -215,11 +251,14 @@ export class MainSceneComponent extends Phaser.Scene {
 
                 if (!this.players.has(player.nickname)) {
                     if (player.nickname !== this.myPlayerName) {
-                        this.players.set(player.nickname, new Player(this.load.scene, player.positionX, player.positionY, 'other-player', player.score));
-                        this.physics.add.overlap(this.players.get(player.nickname), this.coins, this.collectCoin, null, this);
+                        this.players.set(player.nickname, new Player(this, player.positionX, player.positionY, 'other-player', player.score));
+                        this.players.get(player.nickname).anims.play('enemyAnim');
+
+                        // Dodanie kolidera na graczu oraz warstwie
+                        // this.physics.add.collider(this.players.get(this.myPlayerName), this.players.get(player.nickname));
+                        // this.physics.add.overlap(this.players.get(player.nickname), this.players.get(this.myPlayerName), this.example, null, this);
                     } else {
-                        this.players.set(player.nickname, new Player(this.load.scene, player.positionX, player.positionY, 'my-player', player.score));
-                        this.physics.add.overlap(this.players.get(player.nickname), this.coins, this.collectCoin, null, this);
+                        this.players.set(player.nickname, new Player(this, player.positionX, player.positionY, 'my-player', player.score));
 
                         this.startSendingPlayerPosition = true;
                         this.yourScore = this.add.text(32, 32, this.myPlayerName + " score: " + player.score, {
@@ -227,7 +266,23 @@ export class MainSceneComponent extends Phaser.Scene {
                             fill: "#ff0044",
                             align: "center"
                         });
+
+                        // Uruchomienie animacji wczesniej przygotowanej
+                        this.players.get(player.nickname).anims.play('myAnim');
+
+                        // 20 razy na sekunde
+                        // this.lastX = this.players.get(this.myPlayerName).x;
+                        // this.lastY = this.players.get(this.myPlayerName).y;
+                        // this.positionSender = interval(50);
+                        // this.positionSender.subscribe(() => {
+                        //     if((this.lastX !== this.players.get(this.myPlayerName).x) || (this.lastY !== this.players.get(this.myPlayerName).y)) {
+                        //         this.lastX = this.players.get(this.myPlayerName).x;
+                        //         this.lastY = this.players.get(this.myPlayerName).y;
+                        //         this.websocketService.sendPosition(this.players.get(this.myPlayerName).x, this.players.get(this.myPlayerName).y, this.myPlayerName, this.players.get(this.myPlayerName).score);
+                        //     }
+                        // });
                     }
+                    this.physics.add.overlap(this.players.get(player.nickname), this.coins, this.collectCoin, null, this);
                 }
             }
         });
@@ -248,10 +303,15 @@ export class MainSceneComponent extends Phaser.Scene {
             currentPlayer.x = player.positionX;
             currentPlayer.y = player.positionY;
             currentPlayer.score = player.score;
+            console.error(currentPlayer.x + "   " + currentPlayer.y);
             this.yourScore.setText(this.myPlayerName + " score: " + this.players.get(this.myPlayerName).score)
             // this.checkRanking(player);
         })
     }
+
+    // example() {
+    //     this.players.get(this.myPlayerName).setVelocity(0, 0);
+    // }
 
     // setScoreText(number, player) {
     //     switch (number) {
@@ -290,25 +350,23 @@ export class MainSceneComponent extends Phaser.Scene {
 
     movePlayerManager() {
         if (this.cursorKeys.left.isDown === true) {
-            this.websocketService.sendPosition(this.players.get(this.myPlayerName).x - 32, this.players.get(this.myPlayerName).y, this.myPlayerName, this.players.get(this.myPlayerName).score);
-            if (this.players.get(this.myPlayerName).anims.getCurrentKey() !== 'myLeft') {
-                this.players.get(this.myPlayerName).anims.play('myLeft')
-            }
+            // this.players.get(this.myPlayerName).setVelocity(-Player.SPEED, 0);
+            this.players.get(this.myPlayerName).setAngle(270);
+            this.websocketService.sendPosition(this.players.get(this.myPlayerName).x - Player.SPEED, this.players.get(this.myPlayerName).y, this.myPlayerName, this.players.get(this.myPlayerName).score, Direction.HORIZON);
         } else if (this.cursorKeys.right.isDown === true) {
-            this.websocketService.sendPosition(this.players.get(this.myPlayerName).x + 32, this.players.get(this.myPlayerName).y, this.myPlayerName, this.players.get(this.myPlayerName).score);
-            if (this.players.get(this.myPlayerName).anims.getCurrentKey() !== 'myRight') {
-                this.players.get(this.myPlayerName).anims.play('myRight')
-            }
+            // this.players.get(this.myPlayerName).setVelocity(Player.SPEED, 0);
+            this.players.get(this.myPlayerName).setAngle(90);
+            this.websocketService.sendPosition(this.players.get(this.myPlayerName).x + Player.SPEED, this.players.get(this.myPlayerName).y, this.myPlayerName, this.players.get(this.myPlayerName).score, Direction.HORIZON);
         } else if (this.cursorKeys.up.isDown === true) {
-            this.websocketService.sendPosition(this.players.get(this.myPlayerName).x, this.players.get(this.myPlayerName).y - 32, this.myPlayerName, this.players.get(this.myPlayerName).score);
-            if (this.players.get(this.myPlayerName).anims.getCurrentKey() !== 'myUp') {
-                this.players.get(this.myPlayerName).anims.play('myUp')
-            }
+            // this.players.get(this.myPlayerName).setVelocity(0, -Player.SPEED);
+            this.players.get(this.myPlayerName).setAngle(0);
+            this.websocketService.sendPosition(this.players.get(this.myPlayerName).x, this.players.get(this.myPlayerName).y - Player.SPEED, this.myPlayerName, this.players.get(this.myPlayerName).score, Direction.VERTICAL);
         } else if (this.cursorKeys.down.isDown === true) {
-            this.websocketService.sendPosition(this.players.get(this.myPlayerName).x, this.players.get(this.myPlayerName).y + 32, this.myPlayerName, this.players.get(this.myPlayerName).score);
-            if (this.players.get(this.myPlayerName).anims.getCurrentKey() !== 'myDown') {
-                this.players.get(this.myPlayerName).anims.play('myDown')
-            }
+            // this.players.get(this.myPlayerName).setVelocity(0, Player.SPEED);
+            this.players.get(this.myPlayerName).setAngle(180);
+            this.websocketService.sendPosition(this.players.get(this.myPlayerName).x, this.players.get(this.myPlayerName).y + Player.SPEED, this.myPlayerName, this.players.get(this.myPlayerName).score, Direction.VERTICAL);
+        } else {
+            this.players.get(this.myPlayerName).setVelocity(0, 0);
         }
     }
 
@@ -357,31 +415,10 @@ export class MainSceneComponent extends Phaser.Scene {
         this.elementRef.nativeElement.remove();
     }
 
-    createAnimationsBySpriteKey(figureKey: string, left: string, right: string, down: string, up: string) {
+    createAnimationsBySpriteKey(figureKey: string, animKey: string) {
         this.anims.create({
-            key: left,
-            frames: this.anims.generateFrameNumbers(figureKey, {frames: [2, 0]}),
-            frameRate: 10,
-            repeat: -1
-        });
-
-        this.anims.create({
-            key: up,
+            key: animKey,
             frames: this.anims.generateFrameNumbers(figureKey, {frames: [3, 1]}),
-            frameRate: 10,
-            repeat: -1
-        });
-
-        this.anims.create({
-            key: down,
-            frames: this.anims.generateFrameNumbers(figureKey, {frames: [7, 5]}),
-            frameRate: 10,
-            repeat: -1
-        });
-
-        this.anims.create({
-            key: right,
-            frames: this.anims.generateFrameNumbers(figureKey, {frames: [6, 4]}),
             frameRate: 10,
             repeat: -1
         });
@@ -390,25 +427,19 @@ export class MainSceneComponent extends Phaser.Scene {
     changeAnimationFrameForOtherPlayers(playerToUpdate, currentPlayer) {
         if (this.myPlayerName !== playerToUpdate.nickname) {
             if (currentPlayer.x < playerToUpdate.positionX) {
-                if (currentPlayer.anims.getCurrentKey() !== 'enemyRight') {
-                    currentPlayer.anims.play('enemyRight')
-                }
+                currentPlayer.setAngle(90);
             }
             if (currentPlayer.x > playerToUpdate.positionX) {
-                if (currentPlayer.anims.getCurrentKey() !== 'enemyLeft') {
-                    currentPlayer.anims.play('enemyLeft')
-                }
+                currentPlayer.setAngle(270);
             }
             if (currentPlayer.y < playerToUpdate.positionY) {
-                if (currentPlayer.anims.getCurrentKey() !== 'enemyDown') {
-                    currentPlayer.anims.play('enemyDown')
-                }
+                currentPlayer.setAngle(180);
             }
             if (currentPlayer.y > playerToUpdate.positionY) {
-                if (currentPlayer.anims.getCurrentKey() !== 'enemyUp') {
-                    currentPlayer.anims.play('enemyUp')
-                }
+                currentPlayer.setAngle(0);
             }
         }
     }
+
+
 }

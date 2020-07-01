@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
-    "start": "ng serve",
+    "start": "ng serve --no-live-reload",
     "build": "ng build",
     "test": "ng test",
     "lint": "ng lint",
@@ -30,6 +30,9 @@
     "net": "^1.0.2",
     "ngx-cookie-service": "latest",
     "phaser": "^3.22.0",
+    "rsocket-core": "0.0.19",
+    "rsocket-flowable": "0.0.14",
+    "rsocket-websocket-client": "0.0.19",
     "rxjs": "^6.5.5",
     "sockjs-client": "^1.4.0",
     "stompjs": "^2.3.3",
