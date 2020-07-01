@@ -4,7 +4,7 @@ import { NgModule } from '@angular/core';
 import { AppComponent } from './app.component';
 import { GameComponent } from './game/game.component';
 import { MainSceneComponent } from './scenes/main-scene/main-scene.component';
-import {WebsocketService} from './websocket/websocket.service';
+import {WebsocketService} from './communication/websocket/websocket.service';
 import {HttpClientModule} from '@angular/common/http';
 import {HttpService} from './http/http.service';
 import {AppRoutingModule} from "./app-routing.module";

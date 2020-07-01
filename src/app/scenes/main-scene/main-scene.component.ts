@@ -1,20 +1,24 @@
 import {Component, ElementRef, Injectable} from '@angular/core';
 import Phaser from 'phaser';
-import {SocketClientState, WebsocketService} from '../../websocket/websocket.service';
+import {WebsocketService} from '../../communication/websocket/websocket.service';
 import {Router} from "@angular/router";
 import {Player} from "../../model/Player";
 import {interval, Observable, Subscription} from "rxjs";
 import StaticGroup = Phaser.Physics.Arcade.StaticGroup;
 import {DownloadService} from "../../downloader/download.service";
 import Group = Phaser.Physics.Arcade.Group;
-
-export enum Direction {
-    HORIZON = "HORIZON",
-    VERTICAL = "VERTICAL",
-}
+import {Communicator} from "../../communication/Communicator";
+import {Direction} from "../../communication/Direction";
+import {SocketClientState} from "../../communication/SocketClientState";
 
 @Component({
     selector: 'app-main-scene',
+    providers: [
+        {
+            provide: Communicator,
+            useClass: WebsocketService
+        }
+    ],
     templateUrl: './main-scene.component.html',
     styleUrls: ['./main-scene.component.css']
 })
@@ -64,7 +68,7 @@ export class MainSceneComponent extends Phaser.Scene {
     private scoreNumber3: any;
 
     constructor(
-        private websocketService: WebsocketService,
+        private websocketService: Communicator,
         private router: Router,
         private elementRef: ElementRef,
         private downloadService: DownloadService) {
@@ -78,14 +82,14 @@ export class MainSceneComponent extends Phaser.Scene {
     }
 
     startGame() {
-        this.websocketService.initializeWebSocketConnection();
+        this.websocketService.initializeConnection();
 
         this.subscription2 = this.websocketService.getState().subscribe(state => {
             if (state === SocketClientState.CONNECTED) {
                 this.subscription1 = this.websocketService.getIfJoinGame().subscribe((currentCoinPosition) => {
                     if (currentCoinPosition.length > 0) {
                         for (const coinPosition of currentCoinPosition) {
-                            const d = this.coins.create((coinPosition.positionX * 32) + 16, (coinPosition.positionY * 32) - 16, "coin",null,true,true);
+                            const d = this.coins.create((coinPosition.positionX * 32) + 16, (coinPosition.positionY * 32) - 16, "coin", null, true, true);
                             // var callback = function (d) {
                             //
                             // }
@@ -436,7 +440,6 @@ export class MainSceneComponent extends Phaser.Scene {
             }
         }
     }
-
 
 
 }

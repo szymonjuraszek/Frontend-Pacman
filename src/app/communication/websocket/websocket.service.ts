@@ -1,37 +1,24 @@
 import {Injectable} from '@angular/core';
 import * as Stomp from 'stompjs';
 import * as SockJS from 'sockjs-client';
-import {BehaviorSubject, Subject} from "rxjs";
-import {Player} from "../model/Player";
-import {Monster} from "../model/Monster";
-import {MeasurementService} from "../cache/measurement.service";
-import {Direction} from "../scenes/main-scene/main-scene.component";
-import {Coin} from "../model/Coin";
+import {BehaviorSubject} from "rxjs";
+import {MeasurementService} from "../../cache/measurement.service";
+import {Communicator} from "../Communicator";
+import {Direction} from "../Direction";
+import {SocketClientState} from "../SocketClientState";
 
 @Injectable()
-export class WebsocketService {
-    private serverUrl = 'http://localhost:8080/socket';
-    private state: BehaviorSubject<SocketClientState>;
+export class WebsocketService extends Communicator {
     private stompClient;
 
     // 'https://backend-pacman-app.herokuapp.com/socket'
     // 'http://localhost:8080/socket'
 
-    private playersToAdd = new Subject<Array<Player>>();
-    private playerToRemove = new Subject<Player>();
-    private playerToUpdate = new Subject<Player>();
-    private monsterToUpdate = new Subject<Monster>();
-    private ifJoinGame = new Subject<any>();
-
-    private coinToGet = new Subject<Coin>();
-    private refreshCoin = new Subject<string>();
-    private counter = 0;
-    private sth = "";
-
     constructor(private measurementService: MeasurementService) {
+        super('http://localhost:8080/socket');
     }
 
-    initializeWebSocketConnection() {
+    initializeConnection() {
         const ws = new SockJS(this.serverUrl);
         this.stompClient = Stomp.over(ws);
         this.state = new BehaviorSubject<SocketClientState>(SocketClientState.ATTEMPTING);
@@ -98,9 +85,6 @@ export class WebsocketService {
     }
 
     sendPosition(x: number, y: number, nickname: string, score: number, stepDirection: Direction) {
-        // this.counter = this.counter+ 1
-        // this.sth = this.sth + 'aaaaaaa'
-
         this.stompClient.send('/app/send/position', {}, JSON.stringify({
                 "nickname": nickname,
                 "positionX": x,
@@ -157,10 +141,4 @@ export class WebsocketService {
     getRefreshCoins() {
         return this.refreshCoin.asObservable();
     }
-}
-
-export enum SocketClientState {
-    CONNECTED,
-    ATTEMPTING,
-    ERROR
 }
