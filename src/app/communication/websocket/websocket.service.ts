@@ -15,7 +15,7 @@ export class WebsocketService extends Communicator {
     // 'http://localhost:8080/socket'
 
     constructor(private measurementService: MeasurementService) {
-        super('http://localhost:8080/socket');
+        super('http://192.168.0.101:8080/socket');
     }
 
     initializeConnection() {
@@ -38,12 +38,11 @@ export class WebsocketService extends Communicator {
 
             this.stompClient.subscribe('/pacman/update/player', (playerToUpdate) => {
                 const responseTimeInMillis = new Date().getTime() - playerToUpdate.headers.timestamp;
-                console.error("Odpowiedz serwera " + responseTimeInMillis + " milliseconds")
+                // console.error("Odpowiedz serwera " + responseTimeInMillis + " milliseconds")
 
                 if (playerToUpdate.body) {
                     const parsedPlayer = JSON.parse(playerToUpdate.body);
-                    this.measurementService.addMeasurementResponse(
-                        parsedPlayer.nickname, responseTimeInMillis, playerToUpdate.headers.timestamp);
+                    this.measurementService.addMeasurementResponse(responseTimeInMillis, playerToUpdate.headers.timestamp, playerToUpdate.headers.version);
                     this.playerToUpdate.next(parsedPlayer);
                 }
             });
@@ -106,39 +105,5 @@ export class WebsocketService extends Communicator {
         this.stompClient.send('/app/add/player', {}, JSON.stringify({
             "nickname": nickname
         }));
-    }
-
-    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-    getState() {
-        return this.state.asObservable();
-    }
-
-    getPlayersToAdd() {
-        return this.playersToAdd.asObservable();
-    }
-
-    getPlayerToRemove() {
-        return this.playerToRemove.asObservable();
-    }
-
-    getPlayerToUpdate() {
-        return this.playerToUpdate.asObservable();
-    }
-
-    getMonsterToUpdate() {
-        return this.monsterToUpdate.asObservable();
-    }
-
-    getIfJoinGame() {
-        return this.ifJoinGame.asObservable();
-    }
-
-    getCoinToGet() {
-        return this.coinToGet.asObservable();
-    }
-
-    getRefreshCoins() {
-        return this.refreshCoin.asObservable();
     }
 }

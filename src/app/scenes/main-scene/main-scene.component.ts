@@ -10,6 +10,7 @@ import Group = Phaser.Physics.Arcade.Group;
 import {Communicator} from "../../communication/Communicator";
 import {Direction} from "../../communication/Direction";
 import {SocketClientState} from "../../communication/SocketClientState";
+import {Http2Service} from "../../communication/http2/http2.service";
 
 @Component({
     selector: 'app-main-scene',
@@ -89,10 +90,7 @@ export class MainSceneComponent extends Phaser.Scene {
                 this.subscription1 = this.websocketService.getIfJoinGame().subscribe((currentCoinPosition) => {
                     if (currentCoinPosition.length > 0) {
                         for (const coinPosition of currentCoinPosition) {
-                            const d = this.coins.create((coinPosition.positionX * 32) + 16, (coinPosition.positionY * 32) - 16, "coin", null, true, true);
-                            // var callback = function (d) {
-                            //
-                            // }
+                            this.coins.create((coinPosition.positionX * 32) + 16, (coinPosition.positionY * 32) - 16, "coin", null, true, true);
                         }
                         this.websocketService.addPlayer(this.myPlayerName);
                     } else if (currentCoinPosition.length === 0) {
@@ -135,9 +133,10 @@ export class MainSceneComponent extends Phaser.Scene {
         console.error('Create Board');
         this.game.loop.targetFps = 20
         this.physics.world.setFPS(40)
-        console.error('----------------------- Wyswietlam informacje o grze ----------------------');
+        console.error('---------------- Wyswietlam informacje o grze ---------------');
         console.error('FPS actual: ' + this.game.loop.actualFps);
         console.error('FPS physics.world ' + this.physics.world.fps);
+        console.error('---------------------------------------------');
 
         this.createAnimationsBySpriteKey('my-player', 'myAnim');
         this.createAnimationsBySpriteKey('other-player', 'enemyAnim');
@@ -147,7 +146,6 @@ export class MainSceneComponent extends Phaser.Scene {
             frameRate: 2,
             repeat: -1
         });
-
 
         this.board = this.add.tilemap('board');
 
@@ -224,8 +222,6 @@ export class MainSceneComponent extends Phaser.Scene {
     }
 
     collectCoin(player: Player, coin) {
-        // console.error(coin);
-
         coin.destroy(coin.x, coin.y);
         return false;
     }
@@ -303,7 +299,7 @@ export class MainSceneComponent extends Phaser.Scene {
             currentPlayer.x = player.positionX;
             currentPlayer.y = player.positionY;
             currentPlayer.score = player.score;
-            console.error(currentPlayer.x + "   " + currentPlayer.y);
+            // console.error(currentPlayer.x + "   " + currentPlayer.y);
             this.yourScore.setText(this.myPlayerName + " score: " + this.players.get(this.myPlayerName).score)
             // this.checkRanking(player);
         })

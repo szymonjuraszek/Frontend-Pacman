@@ -1,36 +1,35 @@
 export class MeasurementResponse {
-    private _nickname: string;
-    private _responseTimeInMillis: number;
-    private _responseTimestamp: number;
+    private _response_time_in_millis: number;
+    private _response_timestamp: number;
+    private _version_response: number;
 
-    constructor(nickname, responseTimeInMillis, responseTimestamp) {
-        this._nickname = nickname;
-        this._responseTimeInMillis = responseTimeInMillis;
-        this._responseTimestamp = responseTimestamp;
+    constructor(response_time_in_millis: number, response_timestamp: number, version_response: number) {
+        this._response_time_in_millis = response_time_in_millis;
+        this._response_timestamp = response_timestamp;
+        this._version_response = version_response;
     }
 
-
-    get nickname(): string {
-        return this._nickname;
+    get response_time_in_millis(): number {
+        return this._response_time_in_millis;
     }
 
-    set nickname(value: string) {
-        this._nickname = value;
+    set response_time_in_millis(value: number) {
+        this._response_time_in_millis = value;
     }
 
-    get responseTimeInMillis(): number {
-        return this._responseTimeInMillis;
+    get response_timestamp(): number {
+        return this._response_timestamp;
     }
 
-    set responseTimeInMillis(value: number) {
-        this._responseTimeInMillis = value;
+    set response_timestamp(value: number) {
+        this._response_timestamp = value;
     }
 
-    get responseTimestamp(): number {
-        return this._responseTimestamp;
+    get version_response(): number {
+        return this._version_response;
     }
 
-    set responseTimestamp(value: number) {
-        this._responseTimestamp = value;
+    set version_response(value: number) {
+        this._version_response = value;
     }
 }

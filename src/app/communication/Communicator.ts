@@ -27,12 +27,37 @@ export abstract class Communicator {
     abstract sendPosition(x: number, y: number, nickname: string, score: number, stepDirection: Direction);
     abstract joinToGame(nickname: string);
     abstract addPlayer(nickname: string);
-    abstract getState();
-    abstract getPlayersToAdd();
-    abstract getPlayerToRemove();
-    abstract getPlayerToUpdate();
-    abstract getMonsterToUpdate();
-    abstract getIfJoinGame();
-    abstract getCoinToGet();
-    abstract getRefreshCoins();
+
+
+    getState() {
+        return this.state.asObservable();
+    }
+
+    getPlayersToAdd() {
+        return this.playersToAdd.asObservable();
+    }
+
+    getPlayerToRemove() {
+        return this.playerToRemove.asObservable();
+    }
+
+    getPlayerToUpdate() {
+        return this.playerToUpdate.asObservable();
+    }
+
+    getMonsterToUpdate() {
+        return this.monsterToUpdate.asObservable();
+    }
+
+    getIfJoinGame() {
+        return this.ifJoinGame.asObservable();
+    }
+
+    getCoinToGet() {
+        return this.coinToGet.asObservable();
+    }
+
+    getRefreshCoins() {
+        return this.refreshCoin.asObservable();
+    }
 }
