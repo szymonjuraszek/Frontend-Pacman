@@ -1,12 +1,13 @@
 import Phaser from "phaser";
 import {MainSceneComponent} from "../scenes/main-scene/main-scene.component";
 
-export class Player extends Phaser.Physics.Arcade.Sprite{
+export class Player extends Phaser.Physics.Arcade.Sprite {
     public nickname: string;
     private _positionX: number;
     private _positionY: number;
     private _score: number;
-    public static SPEED = 4;
+    private _version: number;
+    public static SPEED = 200;
 
     constructor(scene: MainSceneComponent, x: number, y: number, texture: string, score: number) {
         super(scene, x, y, texture);
@@ -47,5 +48,13 @@ export class Player extends Phaser.Physics.Arcade.Sprite{
 
     set positionY(value: number) {
         this._positionY = value;
+    }
+
+    get version(): number {
+        return this._version;
+    }
+
+    set version(value: number) {
+        this._version = value;
     }
 }

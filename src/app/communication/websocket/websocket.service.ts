@@ -4,8 +4,8 @@ import * as SockJS from 'sockjs-client';
 import {BehaviorSubject} from "rxjs";
 import {MeasurementService} from "../../cache/measurement.service";
 import {Communicator} from "../Communicator";
-import {Direction} from "../Direction";
 import {SocketClientState} from "../SocketClientState";
+import {RequestCacheService} from "../../cache/request-cache.service";
 
 @Injectable()
 export class WebsocketService extends Communicator {
@@ -14,7 +14,7 @@ export class WebsocketService extends Communicator {
     // 'https://backend-pacman-app.herokuapp.com/socket'
     // 'http://localhost:8080/socket'
 
-    constructor(private measurementService: MeasurementService) {
+    constructor(private measurementService: MeasurementService, private requestCache: RequestCacheService) {
         super('http://192.168.0.101:8080/socket');
     }
 
@@ -42,8 +42,18 @@ export class WebsocketService extends Communicator {
 
                 if (playerToUpdate.body) {
                     const parsedPlayer = JSON.parse(playerToUpdate.body);
-                    this.measurementService.addMeasurementResponse(responseTimeInMillis, playerToUpdate.headers.timestamp, playerToUpdate.headers.version);
-                    this.playerToUpdate.next(parsedPlayer);
+                    this.measurementService.addMeasurementResponse(responseTimeInMillis, playerToUpdate.headers.timestamp, parsedPlayer.version);
+
+                    if (parsedPlayer.nickname === this.myNickname) {
+                        const request = this.requestCache.getRequest(parsedPlayer.version);
+                        this.updateScore.next(parsedPlayer.score);
+
+                        if (request !== null && (request.x !== parsedPlayer.positionX || request.y !== parsedPlayer.positionY)) {
+                            this.playerToUpdate.next(parsedPlayer);
+                        }
+                    } else {
+                        this.playerToUpdate.next(parsedPlayer);
+                    }
                 }
             });
 
@@ -63,8 +73,24 @@ export class WebsocketService extends Communicator {
             });
 
             this.stompClient.subscribe('/user/queue/reply', (currentCoinPosition) => {
-                // console.error('wyswietlam obecne pozycje monet ' + currentCoinPosition);
                 this.ifJoinGame.next(JSON.parse(currentCoinPosition.body));
+            });
+
+            this.stompClient.subscribe('/user/queue/player', (playerToUpdate) => {
+                const responseTimeInMillis = new Date().getTime() - playerToUpdate.headers.timestamp;
+
+                if (playerToUpdate.body) {
+                    const parsedPlayer = JSON.parse(playerToUpdate.body);
+                    this.measurementService.addMeasurementResponse(responseTimeInMillis, playerToUpdate.headers.timestamp, parsedPlayer.version);
+
+                    const request = this.requestCache.getCorrectedPosition(parsedPlayer.version);
+
+                    if (request !== null) {
+                        parsedPlayer.positionX = request.x;
+                        parsedPlayer.positionY = request.y;
+                        this.playerToUpdate.next(parsedPlayer);
+                    }
+                }
             });
 
             this.stompClient.subscribe('/pacman/collision/update', (allCoinPosition: string) => {
@@ -83,14 +109,15 @@ export class WebsocketService extends Communicator {
         this.stompClient.disconnect();
     }
 
-    sendPosition(x: number, y: number, nickname: string, score: number, stepDirection: Direction) {
+    sendPosition(x, y, nickname, score, stepDirection, counterRequest) {
         this.stompClient.send('/app/send/position', {}, JSON.stringify({
                 "nickname": nickname,
                 "positionX": x,
                 "positionY": y,
                 "score": score,
                 "stepDirection": stepDirection,
-                "requestTimestamp": new Date().getTime()
+                "requestTimestamp": new Date().getTime(),
+                "version": counterRequest
             }
         ));
     }

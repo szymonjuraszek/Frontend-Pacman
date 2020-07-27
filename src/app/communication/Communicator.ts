@@ -8,6 +8,7 @@ import {Coin} from "../model/Coin";
 export abstract class Communicator {
     protected serverUrl;
     protected state: BehaviorSubject<SocketClientState>;
+    private _myNickname;
 
     protected playersToAdd = new Subject<Array<Player>>();
     protected playerToRemove = new Subject<Player>();
@@ -16,6 +17,7 @@ export abstract class Communicator {
     protected ifJoinGame = new Subject<any>();
 
     protected coinToGet = new Subject<Coin>();
+    protected updateScore = new Subject<number>();
     protected refreshCoin = new Subject<string>();
 
     protected constructor(serverUrl) {
@@ -24,7 +26,7 @@ export abstract class Communicator {
 
     abstract initializeConnection();
     abstract disconnect();
-    abstract sendPosition(x: number, y: number, nickname: string, score: number, stepDirection: Direction);
+    abstract sendPosition(x: number, y: number, nickname: string, score: number, stepDirection: Direction, counterRequest: number);
     abstract joinToGame(nickname: string);
     abstract addPlayer(nickname: string);
 
@@ -59,5 +61,17 @@ export abstract class Communicator {
 
     getRefreshCoins() {
         return this.refreshCoin.asObservable();
+    }
+
+    get myNickname() {
+        return this._myNickname;
+    }
+
+    set myNickname(value) {
+        this._myNickname = value;
+    }
+
+    getUpdateScore() {
+        return this.updateScore.asObservable();
     }
 }

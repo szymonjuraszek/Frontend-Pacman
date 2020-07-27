@@ -11,6 +11,9 @@ import {Communicator} from "../../communication/Communicator";
 import {Direction} from "../../communication/Direction";
 import {SocketClientState} from "../../communication/SocketClientState";
 import {Http2Service} from "../../communication/http2/http2.service";
+import {MeasurementService} from "../../cache/measurement.service";
+import {RequestCacheService} from "../../cache/request-cache.service";
+import {Request} from "../../model/Request";
 
 @Component({
     selector: 'app-main-scene',
@@ -60,6 +63,8 @@ export class MainSceneComponent extends Phaser.Scene {
     private positionSender: Observable<number>;
     private lastX: number;
     private lastY: number;
+    private lastAngle: number;
+    private counterRequest: number = 0;
 
     private coins: Group;
     private yourScore: any;
@@ -72,7 +77,9 @@ export class MainSceneComponent extends Phaser.Scene {
         private websocketService: Communicator,
         private router: Router,
         private elementRef: ElementRef,
-        private downloadService: DownloadService) {
+        private downloadService: DownloadService,
+        private requestCache: RequestCacheService
+    ) {
         super({key: 'main'});
 
         if (this.router.getCurrentNavigation().extras.state) {
@@ -115,6 +122,11 @@ export class MainSceneComponent extends Phaser.Scene {
 
         // Jeszcze trzeba zaimplementowac
         this.websocketService.getCoinToGet().subscribe((coinToCollect) => {
+        });
+
+        this.websocketService.getUpdateScore().subscribe((myScore) => {
+            this.players.get(this.myPlayerName).score = myScore;
+            this.yourScore.setText(this.myPlayerName + " score: " + myScore);
         });
 
         // Jeszcze trzeba zaimplementowac
@@ -249,13 +261,10 @@ export class MainSceneComponent extends Phaser.Scene {
                     if (player.nickname !== this.myPlayerName) {
                         this.players.set(player.nickname, new Player(this, player.positionX, player.positionY, 'other-player', player.score));
                         this.players.get(player.nickname).anims.play('enemyAnim');
-
-                        // Dodanie kolidera na graczu oraz warstwie
-                        // this.physics.add.collider(this.players.get(this.myPlayerName), this.players.get(player.nickname));
-                        // this.physics.add.overlap(this.players.get(player.nickname), this.players.get(this.myPlayerName), this.example, null, this);
+                        // this.players.get(player.nickname).body.immovable = true;
                     } else {
                         this.players.set(player.nickname, new Player(this, player.positionX, player.positionY, 'my-player', player.score));
-
+                        this.websocketService.myNickname = this.myPlayerName;
                         this.startSendingPlayerPosition = true;
                         this.yourScore = this.add.text(32, 32, this.myPlayerName + " score: " + player.score, {
                             font: "50px Arial",
@@ -265,22 +274,22 @@ export class MainSceneComponent extends Phaser.Scene {
 
                         // Uruchomienie animacji wczesniej przygotowanej
                         this.players.get(player.nickname).anims.play('myAnim');
-
-                        // 20 razy na sekunde
-                        // this.lastX = this.players.get(this.myPlayerName).x;
-                        // this.lastY = this.players.get(this.myPlayerName).y;
-                        // this.positionSender = interval(50);
-                        // this.positionSender.subscribe(() => {
-                        //     if((this.lastX !== this.players.get(this.myPlayerName).x) || (this.lastY !== this.players.get(this.myPlayerName).y)) {
-                        //         this.lastX = this.players.get(this.myPlayerName).x;
-                        //         this.lastY = this.players.get(this.myPlayerName).y;
-                        //         this.websocketService.sendPosition(this.players.get(this.myPlayerName).x, this.players.get(this.myPlayerName).y, this.myPlayerName, this.players.get(this.myPlayerName).score);
-                        //     }
-                        // });
+                        this.requestCache.lastCorrectRequest = new Request(0, player.positionX, player.positionY);
+                        this.sendPlayerPosition();
                     }
                     this.physics.add.overlap(this.players.get(player.nickname), this.coins, this.collectCoin, null, this);
                 }
             }
+
+            // for (const player of playersToAdd) {
+            //     if (player.nickname !== this.myPlayerName) {
+            //         this.physics.add.collider(this.players.get(this.myPlayerName), this.players.get(player.nickname)
+            //             ,(h) => {
+            //                 this.players.get(this.myPlayerName).setVelocity(0,0);
+            //                 this.players.get(player.nickname).setVelocity(0,0);
+            //             });
+            //     }
+            // }
         });
 
         this.subscription4 = this.websocketService.getPlayerToRemove().subscribe((playerToRemove: Player) => {
@@ -296,18 +305,39 @@ export class MainSceneComponent extends Phaser.Scene {
         this.subscription5 = this.websocketService.getPlayerToUpdate().subscribe((player) => {
             let currentPlayer: Player = this.players.get(player.nickname);
             this.changeAnimationFrameForOtherPlayers(player, currentPlayer);
+
             currentPlayer.x = player.positionX;
             currentPlayer.y = player.positionY;
             currentPlayer.score = player.score;
+            // currentPlayer.score = player.score;
             // console.error(currentPlayer.x + "   " + currentPlayer.y);
-            this.yourScore.setText(this.myPlayerName + " score: " + this.players.get(this.myPlayerName).score)
             // this.checkRanking(player);
         })
     }
 
-    // example() {
-    //     this.players.get(this.myPlayerName).setVelocity(0, 0);
-    // }
+    // 50 FPS dla 20 milis
+    sendPlayerPosition() {
+        const player = this.players.get(this.myPlayerName);
+        this.lastX = player.x;
+        this.lastY = player.y;
+        this.lastAngle = player.angle;
+
+        this.positionSender = interval(20);
+        this.positionSender.subscribe(() => {
+            const player = this.players.get(this.myPlayerName);
+            if ((this.lastX !== player.x) ||
+                (this.lastY !== player.y) ||
+                (this.lastAngle !== player.angle)) {
+
+                this.lastX = player.x;
+                this.lastY = player.y;
+                this.lastAngle = player.angle;
+
+                this.requestCache.addRequest(++this.counterRequest, player.x, player.y);
+                this.websocketService.sendPosition(player.x, player.y, this.myPlayerName, player.score, this.getDirection(), this.counterRequest);
+            }
+        });
+    }
 
     // setScoreText(number, player) {
     //     switch (number) {
@@ -346,21 +376,21 @@ export class MainSceneComponent extends Phaser.Scene {
 
     movePlayerManager() {
         if (this.cursorKeys.left.isDown === true) {
-            // this.players.get(this.myPlayerName).setVelocity(-Player.SPEED, 0);
+            this.players.get(this.myPlayerName).setVelocity(-Player.SPEED, 0);
             this.players.get(this.myPlayerName).setAngle(270);
-            this.websocketService.sendPosition(this.players.get(this.myPlayerName).x - Player.SPEED, this.players.get(this.myPlayerName).y, this.myPlayerName, this.players.get(this.myPlayerName).score, Direction.HORIZON);
+            // this.websocketService.sendPosition(this.players.get(this.myPlayerName).x - Player.SPEED, this.players.get(this.myPlayerName).y, this.myPlayerName, this.players.get(this.myPlayerName).score, Direction.HORIZON);
         } else if (this.cursorKeys.right.isDown === true) {
-            // this.players.get(this.myPlayerName).setVelocity(Player.SPEED, 0);
+            this.players.get(this.myPlayerName).setVelocity(Player.SPEED, 0);
             this.players.get(this.myPlayerName).setAngle(90);
-            this.websocketService.sendPosition(this.players.get(this.myPlayerName).x + Player.SPEED, this.players.get(this.myPlayerName).y, this.myPlayerName, this.players.get(this.myPlayerName).score, Direction.HORIZON);
+            // this.websocketService.sendPosition(this.players.get(this.myPlayerName).x + Player.SPEED, this.players.get(this.myPlayerName).y, this.myPlayerName, this.players.get(this.myPlayerName).score, Direction.HORIZON);
         } else if (this.cursorKeys.up.isDown === true) {
-            // this.players.get(this.myPlayerName).setVelocity(0, -Player.SPEED);
+            this.players.get(this.myPlayerName).setVelocity(0, -Player.SPEED);
             this.players.get(this.myPlayerName).setAngle(0);
-            this.websocketService.sendPosition(this.players.get(this.myPlayerName).x, this.players.get(this.myPlayerName).y - Player.SPEED, this.myPlayerName, this.players.get(this.myPlayerName).score, Direction.VERTICAL);
+            // this.websocketService.sendPosition(this.players.get(this.myPlayerName).x, this.players.get(this.myPlayerName).y - Player.SPEED, this.myPlayerName, this.players.get(this.myPlayerName).score, Direction.VERTICAL);
         } else if (this.cursorKeys.down.isDown === true) {
-            // this.players.get(this.myPlayerName).setVelocity(0, Player.SPEED);
+            this.players.get(this.myPlayerName).setVelocity(0, Player.SPEED);
             this.players.get(this.myPlayerName).setAngle(180);
-            this.websocketService.sendPosition(this.players.get(this.myPlayerName).x, this.players.get(this.myPlayerName).y + Player.SPEED, this.myPlayerName, this.players.get(this.myPlayerName).score, Direction.VERTICAL);
+            // this.websocketService.sendPosition(this.players.get(this.myPlayerName).x, this.players.get(this.myPlayerName).y + Player.SPEED, this.myPlayerName, this.players.get(this.myPlayerName).score, Direction.VERTICAL);
         } else {
             this.players.get(this.myPlayerName).setVelocity(0, 0);
         }
@@ -393,6 +423,7 @@ export class MainSceneComponent extends Phaser.Scene {
     ngOnDestroy() {
         if (this.subscription1 != null) {
             console.error('OnDestory')
+            this.counterRequest = 0;
             this.subscription1.unsubscribe();
             this.subscription2.unsubscribe();
             this.subscription3.unsubscribe();
@@ -437,5 +468,22 @@ export class MainSceneComponent extends Phaser.Scene {
         }
     }
 
+    getDirection() {
+        console.error(this.players.get(this.myPlayerName).angle)
+        switch (this.players.get(this.myPlayerName).angle) {
+            case 90: {
+                return Direction.HORIZON;
+            }
+            case -180: {
+                return Direction.VERTICAL;
+            }
+            case -90: {
+                return Direction.HORIZON;
+            }
+            case 0: {
+                return Direction.VERTICAL;
+            }
+        }
+    }
 
 }
