@@ -324,7 +324,7 @@ export class MainSceneComponent extends Phaser.Scene {
 
         this.positionSender = interval(20);
         this.positionSender.subscribe(() => {
-            const player = this.players.get(this.myPlayerName);
+            const player: Player = this.players.get(this.myPlayerName);
             if ((this.lastX !== player.x) ||
                 (this.lastY !== player.y) ||
                 (this.lastAngle !== player.angle)) {
@@ -332,9 +332,11 @@ export class MainSceneComponent extends Phaser.Scene {
                 this.lastX = player.x;
                 this.lastY = player.y;
                 this.lastAngle = player.angle;
-
-                this.requestCache.addRequest(++this.counterRequest, player.x, player.y);
-                this.websocketService.sendPosition(player.x, player.y, this.myPlayerName, player.score, this.getDirection(), this.counterRequest);
+            // console.error(player);
+            console.error(player.x);
+            console.error(player.y);
+            this.requestCache.addRequest(++this.counterRequest, player.x, player.y);
+            this.websocketService.sendPosition(player.x, player.y, this.myPlayerName, player.score, this.getDirection(), this.counterRequest);
             }
         });
     }

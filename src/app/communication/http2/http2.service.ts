@@ -7,7 +7,8 @@ import {SocketClientState} from "../SocketClientState";
 import {HttpClient, HttpHeaders, HttpParams, HttpResponse} from "@angular/common/http";
 import {Coin} from "../../model/Coin";
 import {Player} from "../../model/Player";
-import {version} from "punycode";
+import {RequestCacheService} from "../../cache/request-cache.service";
+import {HTTP_URL_MAIN} from "../../../../global-config";
 
 @Injectable({
     providedIn: 'root'
@@ -16,8 +17,8 @@ export class Http2Service extends Communicator {
     private eventSource: EventSource;
     private nickname: string;
 
-    constructor(private measurementService: MeasurementService, private http: HttpClient) {
-        super('https://localhost:8080');
+    constructor(private measurementService: MeasurementService, private http: HttpClient, private requestCache: RequestCacheService) {
+        super(HTTP_URL_MAIN);
     }
 
     initializeConnection() {
@@ -61,10 +62,10 @@ export class Http2Service extends Communicator {
                         this.playersToAdd.next(JSON.parse(playerToAddEvent.data));
                     });
                     this.eventSource.addEventListener('/pacman/update/player', (playerToUpdateEvent: MessageEvent) => {
-                        console.error('Update gracza!')
-                        let obj = JSON.parse(playerToUpdateEvent.data);
-                        this.saveResponseTime(obj.timestamp);
-                        this.playerToUpdate.next(JSON.parse(playerToUpdateEvent.data));
+                        let playerToUpdate = JSON.parse(playerToUpdateEvent.data);
+                        console.error(playerToUpdate);
+                        this.saveResponseTime(playerToUpdate.timestamp, playerToUpdate.version);
+                        this.playerToUpdate.next(playerToUpdate);
                     });
 
                     this.http.get(this.serverUrl + "/coins").subscribe((coinsPosition: Array<Coin>) => {
@@ -88,13 +89,14 @@ export class Http2Service extends Communicator {
             });
     }
 
-    sendPosition(x: number, y: number, nickname: string, score: number, stepDirection: Direction) {
+    sendPosition(x: number, y: number, nickname: string, score: number, stepDirection: Direction, counterRequest) {
         this.http.put(this.serverUrl + "/player", JSON.stringify({
             "nickname": nickname,
             "positionX": x,
             "positionY": y,
             "score": score,
-            "stepDirection": stepDirection
+            "stepDirection": stepDirection,
+            "version": counterRequest
         }), {
             headers: {
                 'Content-Type': 'application/json',
@@ -102,19 +104,30 @@ export class Http2Service extends Communicator {
             },
             observe: 'response'
         }).subscribe((player: HttpResponse<Player>) => {
-            this.saveResponseTime(Number(player.headers.get('timestamp')));
+            this.saveResponseTime(Number(player.headers.get('timestamp')), player.body.version);
 
             if (player.status === 202) {
-                this.playerToUpdate.next(player.body);
-            } else if (player.status === 200 && player.body !== null) {
-                this.playerToRemove.next(player.body);
+                const request = this.requestCache.getCorrectedPosition(player.body.version);
+
+                if (request !== null) {
+                    player.body.positionX = request.x;
+                    player.body.positionY = request.y;
+                    this.playerToUpdate.next(player.body);
+                }
+            } else if (player.status === 201) {
+                const request = this.requestCache.getRequest(player.body.version);
+                this.updateScore.next(player.body.score);
+
+                if (request !== null && (request.x !== player.body.positionX || request.y !== player.body.positionY)) {
+                    this.playerToUpdate.next(player.body);
+                }
             } else if (player.status === 200) {
-                console.error('Nic nie robie');
+                this.playerToRemove.next(player.body);
             }
         });
     }
 
-    saveResponseTime(timestampFromServer: number) {
+    saveResponseTime(timestampFromServer: number, version: number) {
         const responseTimeInMillis = new Date().getTime() - timestampFromServer;
         console.error("Odpowiedz serwera " + responseTimeInMillis + " milliseconds")
         this.measurementService.addMeasurementResponse(responseTimeInMillis, timestampFromServer, version);

@@ -1,5 +1,6 @@
 import {Injectable} from '@angular/core';
 import {HttpClient, HttpHeaders} from '@angular/common/http';
+import {HTTP_URL_DOWNLOAD} from "../../../global-config";
 
 @Injectable()
 export class HttpService {
@@ -11,7 +12,7 @@ export class HttpService {
     let headers = new HttpHeaders();
     headers = headers.append('Accept', 'text/csv; charset=utf-8');
 
-    return this.httpClient.get('http://192.168.0.101:8080/report/measurement', {
+    return this.httpClient.get(HTTP_URL_DOWNLOAD, {
       headers: headers,
       observe: 'response',
       responseType: 'text'

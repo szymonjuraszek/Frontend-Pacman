@@ -6,6 +6,7 @@ import {MeasurementService} from "../../cache/measurement.service";
 import {Communicator} from "../Communicator";
 import {SocketClientState} from "../SocketClientState";
 import {RequestCacheService} from "../../cache/request-cache.service";
+import {WEBSOCKET_URL_MAIN} from "../../../../global-config";
 
 @Injectable()
 export class WebsocketService extends Communicator {
@@ -15,7 +16,7 @@ export class WebsocketService extends Communicator {
     // 'http://localhost:8080/socket'
 
     constructor(private measurementService: MeasurementService, private requestCache: RequestCacheService) {
-        super('http://192.168.0.101:8080/socket');
+        super(WEBSOCKET_URL_MAIN);
     }
 
     initializeConnection() {
@@ -117,9 +118,22 @@ export class WebsocketService extends Communicator {
                 "score": score,
                 "stepDirection": stepDirection,
                 "requestTimestamp": new Date().getTime(),
-                "version": counterRequest
+                "version": counterRequest,
+                "data1": this.variable
             }
         ));
+    }
+
+    variable = this.makeid(50000);
+
+    makeid(length) {
+        var result           = '';
+        var characters       = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        var charactersLength = characters.length;
+        for ( var i = 0; i < length; i++ ) {
+            result += characters.charAt(Math.floor(Math.random() * charactersLength));
+        }
+        return result;
     }
 
     joinToGame(nickname: string) {

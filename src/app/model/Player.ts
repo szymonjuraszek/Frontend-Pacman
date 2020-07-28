@@ -7,7 +7,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     private _positionY: number;
     private _score: number;
     private _version: number;
-    public static SPEED = 200;
+    public static SPEED = 400;
 
     constructor(scene: MainSceneComponent, x: number, y: number, texture: string, score: number) {
         super(scene, x, y, texture);
