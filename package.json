@@ -21,6 +21,7 @@
     "@angular/platform-browser": "^9.0.7",
     "@angular/platform-browser-dynamic": "^9.0.7",
     "@angular/router": "^9.0.7",
+    "@stomp/stompjs": "^5.4.4",
     "@types/matter-js": "^0.14.2",
     "angular-oauth2-oidc": "^9.2.0",
     "angular-web-storage": "^9.0.0",

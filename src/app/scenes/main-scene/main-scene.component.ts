@@ -143,8 +143,8 @@ export class MainSceneComponent extends Phaser.Scene {
         this.manageMonstersInGame();
 
         console.error('Create Board');
-        this.game.loop.targetFps = 20
-        this.physics.world.setFPS(40)
+        this.game.loop.targetFps = 50
+        this.physics.world.setFPS(50)
         console.error('---------------- Wyswietlam informacje o grze ---------------');
         console.error('FPS actual: ' + this.game.loop.actualFps);
         console.error('FPS physics.world ' + this.physics.world.fps);
@@ -260,6 +260,7 @@ export class MainSceneComponent extends Phaser.Scene {
                 if (!this.players.has(player.nickname)) {
                     if (player.nickname !== this.myPlayerName) {
                         this.players.set(player.nickname, new Player(this, player.positionX, player.positionY, 'other-player', player.score));
+                        console.error('Dodaje gracza ' + player.nickname)
                         this.players.get(player.nickname).anims.play('enemyAnim');
                         // this.players.get(player.nickname).body.immovable = true;
                     } else {
@@ -304,11 +305,15 @@ export class MainSceneComponent extends Phaser.Scene {
 
         this.subscription5 = this.websocketService.getPlayerToUpdate().subscribe((player) => {
             let currentPlayer: Player = this.players.get(player.nickname);
-            this.changeAnimationFrameForOtherPlayers(player, currentPlayer);
 
-            currentPlayer.x = player.positionX;
-            currentPlayer.y = player.positionY;
-            currentPlayer.score = player.score;
+            if(currentPlayer) {
+                this.changeAnimationFrameForOtherPlayers(player, currentPlayer);
+
+                currentPlayer.x = player.positionX;
+                currentPlayer.y = player.positionY;
+                currentPlayer.score = player.score;
+            }
+
             // currentPlayer.score = player.score;
             // console.error(currentPlayer.x + "   " + currentPlayer.y);
             // this.checkRanking(player);
@@ -333,8 +338,8 @@ export class MainSceneComponent extends Phaser.Scene {
                 this.lastY = player.y;
                 this.lastAngle = player.angle;
             // console.error(player);
-            console.error(player.x);
-            console.error(player.y);
+            // console.error(player.x);
+            // console.error(player.y);
             this.requestCache.addRequest(++this.counterRequest, player.x, player.y);
             this.websocketService.sendPosition(player.x, player.y, this.myPlayerName, player.score, this.getDirection(), this.counterRequest);
             }
@@ -393,9 +398,10 @@ export class MainSceneComponent extends Phaser.Scene {
             this.players.get(this.myPlayerName).setVelocity(0, Player.SPEED);
             this.players.get(this.myPlayerName).setAngle(180);
             // this.websocketService.sendPosition(this.players.get(this.myPlayerName).x, this.players.get(this.myPlayerName).y + Player.SPEED, this.myPlayerName, this.players.get(this.myPlayerName).score, Direction.VERTICAL);
-        } else {
-            this.players.get(this.myPlayerName).setVelocity(0, 0);
         }
+        // else {
+        //     this.players.get(this.myPlayerName).setVelocity(0, 0);
+        // }
     }
 
     manageMonstersInGame() {
@@ -453,7 +459,9 @@ export class MainSceneComponent extends Phaser.Scene {
         });
     }
 
-    changeAnimationFrameForOtherPlayers(playerToUpdate, currentPlayer) {
+    changeAnimationFrameForOtherPlayers(playerToUpdate: Player, currentPlayer: Player) {
+        console.error(playerToUpdate)
+        console.error(currentPlayer)
         if (this.myPlayerName !== playerToUpdate.nickname) {
             if (currentPlayer.x < playerToUpdate.positionX) {
                 currentPlayer.setAngle(90);
