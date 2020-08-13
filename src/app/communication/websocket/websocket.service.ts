@@ -59,7 +59,6 @@ export class WebsocketService extends Communicator {
                 if (parsedPlayer.nickname === this.myNickname) {
                     const request = this.requestCache.getRequest(parsedPlayer.version);
                     this.updateScore.next(parsedPlayer.score);
-
                     if (request !== null && (request.x !== parsedPlayer.positionX || request.y !== parsedPlayer.positionY)) {
                         this.playerToUpdate.next(parsedPlayer);
                     }

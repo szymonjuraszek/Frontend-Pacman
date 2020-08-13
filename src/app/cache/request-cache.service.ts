@@ -37,6 +37,7 @@ export class RequestCacheService {
                 return request;
             }
         }
+        return null;
     }
 
     getCorrectedPosition(id) {
