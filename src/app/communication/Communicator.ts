@@ -18,7 +18,7 @@ export abstract class Communicator {
 
     protected coinToGet = new Subject<Coin>();
     protected updateScore = new Subject<number>();
-    protected refreshCoin = new Subject<string>();
+    protected refreshCoin = new Subject<Coin>();
 
     protected constructor(serverUrl) {
         this.serverUrl = serverUrl;

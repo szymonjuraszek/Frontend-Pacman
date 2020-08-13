@@ -130,7 +130,7 @@ export class MainSceneComponent extends Phaser.Scene {
         });
 
         // Jeszcze trzeba zaimplementowac
-        this.websocketService.getRefreshCoins().subscribe((refreshCoinsCommand) => {
+        this.websocketService.getRefreshCoins().subscribe(() => {
             this.coinLayer.forEach(object => {
                 let obj = this.coins.create(object.x + 16, object.y - 16, "coin");
                 obj.setScale(object.width / 32, object.height / 32);
