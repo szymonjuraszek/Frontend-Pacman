@@ -306,7 +306,7 @@ export class MainSceneComponent extends Phaser.Scene {
         this.subscription5 = this.websocketService.getPlayerToUpdate().subscribe((player) => {
             let currentPlayer: Player = this.players.get(player.nickname);
 
-            if(currentPlayer) {
+            if (currentPlayer) {
                 this.changeAnimationFrameForOtherPlayers(player, currentPlayer);
 
                 currentPlayer.x = player.positionX;
@@ -337,11 +337,18 @@ export class MainSceneComponent extends Phaser.Scene {
                 this.lastX = player.x;
                 this.lastY = player.y;
                 this.lastAngle = player.angle;
-            // console.error(player);
-            // console.error(player.x);
-            // console.error(player.y);
-            this.requestCache.addRequest(++this.counterRequest, player.x, player.y);
-            this.websocketService.sendPosition(player.x, player.y, this.myPlayerName, player.score, this.getDirection(), this.counterRequest);
+                // console.error(player);
+                // console.error(player.x);
+                // console.error(player.y);
+                this.requestCache.addRequest(++this.counterRequest, player.x, player.y);
+                this.websocketService.sendPosition({
+                    "nickname": this.myPlayerName,
+                    "positionX": player.x,
+                    "positionY": player.y,
+                    "score": player.score,
+                    "stepDirection": this.getDirection(),
+                    "version": this.counterRequest
+                });
             }
         });
     }

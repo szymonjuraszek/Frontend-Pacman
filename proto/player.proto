@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+message PlayerProto {
+    string nickname = 1;
+    int32 position_x = 2;
+    int32 position_y = 3;
+    int32 score = 4;
+    string step_direction = 5;
+    int32 version = 6;
+}

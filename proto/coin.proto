@@ -1,0 +1,6 @@
+syntax = "proto3";
+
+message CoinProto {
+  int32 position_x = 1;
+  int32 position_y = 2;
+}

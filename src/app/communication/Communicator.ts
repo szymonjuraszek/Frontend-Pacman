@@ -26,7 +26,7 @@ export abstract class Communicator {
 
     abstract initializeConnection();
     abstract disconnect();
-    abstract sendPosition(x: number, y: number, nickname: string, score: number, stepDirection: Direction, counterRequest: number);
+    abstract sendPosition(data);
     abstract joinToGame(nickname: string);
     abstract addPlayer(nickname: string);
 

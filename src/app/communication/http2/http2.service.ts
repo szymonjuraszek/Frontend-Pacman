@@ -89,15 +89,8 @@ export class Http2Service extends Communicator {
             });
     }
 
-    sendPosition(x: number, y: number, nickname: string, score: number, stepDirection: Direction, counterRequest) {
-        this.http.put(this.serverUrl + "/player", JSON.stringify({
-            "nickname": nickname,
-            "positionX": x,
-            "positionY": y,
-            "score": score,
-            "stepDirection": stepDirection,
-            "version": counterRequest
-        }), {
+    sendPosition(data) {
+        this.http.put(this.serverUrl + "/player", JSON.stringify(data), {
             headers: {
                 'Content-Type': 'application/json',
                 'requestTimestamp': new Date().getTime().toString()
@@ -129,7 +122,7 @@ export class Http2Service extends Communicator {
 
     saveResponseTime(timestampFromServer: number, version: number) {
         const responseTimeInMillis = new Date().getTime() - timestampFromServer;
-        console.error("Odpowiedz serwera " + responseTimeInMillis + " milliseconds")
+        console.error("Odpowiedz serwera " + responseTimeInMillis + " milliseconds");
         this.measurementService.addMeasurementResponse(responseTimeInMillis, timestampFromServer, version);
     }
 }

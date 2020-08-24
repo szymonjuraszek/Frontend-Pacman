@@ -4,26 +4,35 @@ import {MeasurementService} from "../../cache/measurement.service";
 import {Communicator} from "../Communicator";
 import {SocketClientState} from "../SocketClientState";
 import {RequestCacheService} from "../../cache/request-cache.service";
-import {BINARY_FORMAT, WEBSOCKET_URL_MAIN} from "../../../../global-config";
-import {Client} from '@stomp/stompjs';
-import {DecoderService} from "../decoder/decoder.service";
+import {WEBSOCKET_URL_MAIN} from "../../../../global-config";
+import {Client, Stomp} from '@stomp/stompjs';
+import * as SockJS from 'sockjs-client';
 
+import {PlayerProto} from "../../../../proto/generated/proto/player_pb";
+import {Player} from "../../model/Player";
+import {IFormatter} from "../format/IFormatter";
+import {JsonFormatter} from "../format/JsonFormatter";
+import {ProtobufFormatter} from "../format/ProtobufFormatter";
+import {CustomBinaryFormatter} from "../format/CustomBinaryFormatter";
 
 @Injectable()
 export class WebsocketService extends Communicator {
     // 'https://backend-pacman-app.herokuapp.com/socket'
     // 'http://localhost:8080/socket'
     private stompClient: Client;
+    private formatter: IFormatter;
 
     constructor(
         private measurementService: MeasurementService,
         private requestCache: RequestCacheService,
-        private decoder: DecoderService
     ) {
         super(WEBSOCKET_URL_MAIN);
+        this.setFormatter(new CustomBinaryFormatter());
     }
 
     initializeConnection() {
+        // const ws = new SockJS(this.serverUrl);
+        // this.stompClient = Stomp.over(ws);
         this.state = new BehaviorSubject<SocketClientState>(SocketClientState.ATTEMPTING);
 
         this.stompClient = new Client({
@@ -44,12 +53,13 @@ export class WebsocketService extends Communicator {
             });
 
             this.stompClient.subscribe('/pacman/remove/player', (playerToRemove) => {
-                this.playerToRemove.next(this.decoder.decodePlayer(playerToRemove));
+                this.playerToRemove.next(this.formatter.decodePlayer(playerToRemove));
                 console.error('Zaktualizowano gre, usunieto gracza');
             });
 
             this.stompClient.subscribe('/pacman/update/player', (playerToUpdate) => {
-                const parsedPlayer = this.decoder.decodePlayer(playerToUpdate);
+                const parsedPlayer = this.formatter.decodePlayer(playerToUpdate);
+                console.error(parsedPlayer);
 
                 const responseTimeInMillis = new Date().getTime() - Number(playerToUpdate.headers.timestamp);
                 // console.error("Odpowiedz serwera " + responseTimeInMillis + " milliseconds")
@@ -68,7 +78,7 @@ export class WebsocketService extends Communicator {
             });
 
             this.stompClient.subscribe('/pacman/update/monster', (monster) => {
-                this.monsterToUpdate.next(this.decoder.decodeMonster(monster));
+                this.monsterToUpdate.next(this.formatter.decodeMonster(monster));
             });
 
             this.stompClient.subscribe('/pacman/refresh/coins', () => {
@@ -76,7 +86,7 @@ export class WebsocketService extends Communicator {
             });
 
             this.stompClient.subscribe('/pacman/get/coin', (coinPosition) => {
-                this.coinToGet.next(this.decoder.decodeCoin(coinPosition));
+                this.coinToGet.next(this.formatter.decodeCoin(coinPosition));
             });
 
             this.stompClient.subscribe('/user/queue/reply', (currentCoinPosition) => {
@@ -84,7 +94,8 @@ export class WebsocketService extends Communicator {
             });
 
             this.stompClient.subscribe('/user/queue/player', (playerToUpdate) => {
-                const parsedPlayer = this.decoder.decodePlayer(playerToUpdate);
+                const parsedPlayer = this.formatter.decodePlayer(playerToUpdate);
+
                 const responseTimeInMillis = new Date().getTime() - Number(playerToUpdate.headers.timestamp);
 
                 this.measurementService.addMeasurementResponse(responseTimeInMillis, playerToUpdate.headers.timestamp, parsedPlayer.version);
@@ -96,7 +107,6 @@ export class WebsocketService extends Communicator {
                     parsedPlayer.positionY = request.y;
                     this.playerToUpdate.next(parsedPlayer);
                 }
-
             });
 
             this.stompClient.subscribe('/pacman/collision/update', (allCoinPosition) => {
@@ -120,45 +130,31 @@ export class WebsocketService extends Communicator {
         this.stompClient.deactivate();
     }
 
-    sendPosition(x, y, nickname, score, stepDirection, counterRequest) {
-        if (!BINARY_FORMAT) {
+    sendPosition(dataToSend) {
+        const dataWithSpecificFormat = this.formatter.encode(dataToSend);
+        if (this.formatter instanceof JsonFormatter) {
             this.stompClient.publish({
                 destination: '/app/send/position',
-                body: JSON.stringify({
-                    "nickname": nickname,
-                    "positionX": x,
-                    "positionY": y,
-                    "score": score,
-                    "stepDirection": stepDirection,
-                    "version": counterRequest
-                    // "data1": this.variable
-                }),
+                body: JSON.stringify(
+                    dataWithSpecificFormat
+                ),
                 headers: {
                     requestTimestamp: new Date().getTime().toString()
                 }
             });
-        } else {
-            const numbersToSend = new Int16Array(4);
-            numbersToSend[0] = x;
-            numbersToSend[1] = y;
-            numbersToSend[2] = score;
-            numbersToSend[3] = counterRequest;
-            const b = new Uint8Array(numbersToSend.buffer);
-
-            const textToSend = nickname + '|' + stepDirection.toString();
-            const a = new Uint8Array(19);
-            for (let i = 0, strLen = textToSend.length; i < strLen; i++) {
-                a[i] = textToSend.charCodeAt(i);
-            }
-
-            //join two Uint8array
-            const dataToSend = new Uint8Array(a.length + b.length);
-            dataToSend.set(a);
-            dataToSend.set(new Uint8Array(numbersToSend.buffer), a.length);
-
+        } else if (this.formatter instanceof ProtobufFormatter) {
             this.stompClient.publish({
-                destination: '/app/send/position/binary',
-                binaryBody: dataToSend,
+                destination: '/app/send/position/protobuf',
+                binaryBody: dataWithSpecificFormat.serializeBinary(),
+                headers: {
+                    /*'content-type': 'application/octet-stream',*/
+                    requestTimestamp: new Date().getTime().toString()
+                }
+            });
+        } else {
+            this.stompClient.publish({
+                destination: '/app/send/position/custom/binary',
+                binaryBody: dataWithSpecificFormat,
                 headers: {
                     /*'content-type': 'application/octet-stream',*/
                     requestTimestamp: new Date().getTime().toString()
@@ -195,5 +191,9 @@ export class WebsocketService extends Communicator {
             result += characters.charAt(Math.floor(Math.random() * charactersLength));
         }
         return result;
+    }
+
+    setFormatter(formatter) {
+        this.formatter = formatter;
     }
 }
