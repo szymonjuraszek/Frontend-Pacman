@@ -63,7 +63,6 @@ export class Http2Service extends Communicator {
                     });
                     this.eventSource.addEventListener('/pacman/update/player', (playerToUpdateEvent: MessageEvent) => {
                         let playerToUpdate = JSON.parse(playerToUpdateEvent.data);
-                        console.error(playerToUpdate);
                         this.saveResponseTime(playerToUpdate.timestamp, playerToUpdate.version);
                         this.playerToUpdate.next(playerToUpdate);
                     });
@@ -117,6 +116,10 @@ export class Http2Service extends Communicator {
             } else if (player.status === 200) {
                 this.playerToRemove.next(player.body);
             }
+        });
+
+        this.http.get(this.serverUrl + "/stream").subscribe((data) => {
+            console.error(data);
         });
     }
 

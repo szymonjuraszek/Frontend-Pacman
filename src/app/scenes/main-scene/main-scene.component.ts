@@ -14,13 +14,14 @@ import {Http2Service} from "../../communication/http2/http2.service";
 import {MeasurementService} from "../../cache/measurement.service";
 import {RequestCacheService} from "../../cache/request-cache.service";
 import {Request} from "../../model/Request";
+import {RsocketService} from "../../communication/rsocket/rsocket.service";
 
 @Component({
     selector: 'app-main-scene',
     providers: [
         {
             provide: Communicator,
-            useClass: WebsocketService
+            useClass: RsocketService
         }
     ],
     templateUrl: './main-scene.component.html',
@@ -60,6 +61,10 @@ export class MainSceneComponent extends Phaser.Scene {
     private subscription4: Subscription;
     private subscription5: Subscription;
     private subscription6: Subscription;
+    private subscription7: Subscription;
+    private subscription8: Subscription;
+    private subscription9: Subscription;
+    private subscription10: Subscription;
     private positionSender: Observable<number>;
     private lastX: number;
     private lastY: number;
@@ -84,6 +89,7 @@ export class MainSceneComponent extends Phaser.Scene {
 
         if (this.router.getCurrentNavigation().extras.state) {
             this.myPlayerName = this.router.getCurrentNavigation().extras.state.nick;
+            this.websocketService.myNickname = this.myPlayerName;
         } else {
             this.router.navigate(['home']);
         }
@@ -109,7 +115,7 @@ export class MainSceneComponent extends Phaser.Scene {
                 this.websocketService.joinToGame(this.myPlayerName);
                 console.error('Nawiazalem polaczenie websocket i dodalem uzytkownika!');
             } else if (state === SocketClientState.ERROR) {
-                console.error('Nie udalo sie nawiazac polaczenia websocket z serwerem!');
+                console.error('Brak polaczenia websocket z serwerem');
                 this.cleanAndBackToHomePage();
             } else {
                 console.error('Probuje nawiazac polaczenie!')
@@ -121,16 +127,16 @@ export class MainSceneComponent extends Phaser.Scene {
         this.startGame();
 
         // Jeszcze trzeba zaimplementowac
-        this.websocketService.getCoinToGet().subscribe((coinToCollect) => {
+        this.subscription8 = this.websocketService.getCoinToGet().subscribe((coinToCollect) => {
         });
 
-        this.websocketService.getUpdateScore().subscribe((myScore) => {
+        this.subscription9 = this.websocketService.getUpdateScore().subscribe((myScore) => {
             this.players.get(this.myPlayerName).score = myScore;
             this.yourScore.setText(this.myPlayerName + " score: " + myScore);
         });
 
         // Jeszcze trzeba zaimplementowac
-        this.websocketService.getRefreshCoins().subscribe(() => {
+        this.subscription10 = this.websocketService.getRefreshCoins().subscribe(() => {
             this.coinLayer.forEach(object => {
                 let obj = this.coins.create(object.x + 16, object.y - 16, "coin");
                 obj.setScale(object.width / 32, object.height / 32);
@@ -205,7 +211,6 @@ export class MainSceneComponent extends Phaser.Scene {
         // });
 
         this.coins.removeCallback = function () {
-            console.error('Remove callback')
         }
 
 
@@ -265,7 +270,7 @@ export class MainSceneComponent extends Phaser.Scene {
                         // this.players.get(player.nickname).body.immovable = true;
                     } else {
                         this.players.set(player.nickname, new Player(this, player.positionX, player.positionY, 'my-player', player.score));
-                        this.websocketService.myNickname = this.myPlayerName;
+                        // this.websocketService.myNickname = this.myPlayerName;
                         this.startSendingPlayerPosition = true;
                         this.yourScore = this.add.text(32, 32, this.myPlayerName + " score: " + player.score, {
                             font: "50px Arial",
@@ -328,7 +333,7 @@ export class MainSceneComponent extends Phaser.Scene {
         this.lastAngle = player.angle;
 
         this.positionSender = interval(20);
-        this.positionSender.subscribe(() => {
+        this.subscription7 = this.positionSender.subscribe(() => {
             const player: Player = this.players.get(this.myPlayerName);
             if ((this.lastX !== player.x) ||
                 (this.lastY !== player.y) ||
@@ -347,7 +352,8 @@ export class MainSceneComponent extends Phaser.Scene {
                     "positionY": player.y,
                     "score": player.score,
                     "stepDirection": this.getDirection(),
-                    "version": this.counterRequest
+                    "version": this.counterRequest,
+                    "requestTimestamp": new Date().getTime()
                 });
             }
         });
@@ -436,7 +442,12 @@ export class MainSceneComponent extends Phaser.Scene {
     }
 
     ngOnDestroy() {
-        if (this.subscription1 != null) {
+        if (this.subscription1 && this.subscription2 &&
+            this.subscription3 && this.subscription4 &&
+            this.subscription5 && this.subscription6 &&
+            this.subscription7 && this.subscription8 &&
+            this.subscription9 && this.subscription10
+        ) {
             console.error('OnDestory')
             this.counterRequest = 0;
             this.subscription1.unsubscribe();
@@ -445,6 +456,10 @@ export class MainSceneComponent extends Phaser.Scene {
             this.subscription4.unsubscribe();
             this.subscription5.unsubscribe();
             this.subscription6.unsubscribe();
+            this.subscription7.unsubscribe();
+            this.subscription8.unsubscribe();
+            this.subscription9.unsubscribe();
+            this.subscription10.unsubscribe();
             this.websocketService.disconnect();
         }
         if (this.game != null) {
@@ -467,8 +482,6 @@ export class MainSceneComponent extends Phaser.Scene {
     }
 
     changeAnimationFrameForOtherPlayers(playerToUpdate: Player, currentPlayer: Player) {
-        console.error(playerToUpdate)
-        console.error(currentPlayer)
         if (this.myPlayerName !== playerToUpdate.nickname) {
             if (currentPlayer.x < playerToUpdate.positionX) {
                 currentPlayer.setAngle(90);
@@ -486,7 +499,6 @@ export class MainSceneComponent extends Phaser.Scene {
     }
 
     getDirection() {
-        console.error(this.players.get(this.myPlayerName).angle)
         switch (this.players.get(this.myPlayerName).angle) {
             case 90: {
                 return Direction.HORIZON;

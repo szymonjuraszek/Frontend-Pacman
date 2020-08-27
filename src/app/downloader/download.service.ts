@@ -2,7 +2,7 @@ import {Injectable} from '@angular/core';
 import {HttpService} from "../http/http.service";
 import {MeasurementService} from "../cache/measurement.service";
 import {saveAs} from 'file-saver';
-import {CSV_RESPONSE_HEADERS} from "../../../global-config";
+import {CSV_RESPONSE_HEADERS, DOWNLOAD_MEASUREMENT_RSOCKET} from "../../../global-config";
 
 @Injectable({
     providedIn: 'root'
@@ -11,14 +11,36 @@ export class DownloadService {
 
     private RESPONSE_FILE = "response_measurement.csv";
     private REQUEST_FILE = "request_measurement.csv";
+    private _rsocketObject;
 
     constructor(private cacheMeasurement: MeasurementService, private httpService: HttpService) {
     }
 
+    set rsocketObject(value) {
+        this._rsocketObject = value;
+    }
+
     downloadRequestMeasurements() {
-        this.httpService.downloadMeasurements().subscribe((data) => {
-            this.downloadRequestFile(data.body)
-        })
+        if(DOWNLOAD_MEASUREMENT_RSOCKET) {
+            this._rsocketObject
+                .requestResponse({
+                    metadata: String.fromCharCode('/report/measurement'.length) + '/report/measurement',
+                }).subscribe({
+                onComplete: payload => {
+                    this.downloadRequestFile(payload.data.data);
+                },
+                onError: error => {
+                    console.log('got error with requestResponse');
+                    console.error(error);
+                },
+                onSubscribe: cancel => {
+                }
+            });
+        }else {
+            this.httpService.downloadMeasurements().subscribe((data) => {
+                this.downloadRequestFile(data.body)
+            })
+        }
     }
 
     downloadResponseMeasurements() {

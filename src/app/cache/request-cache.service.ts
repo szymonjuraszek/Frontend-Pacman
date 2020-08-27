@@ -43,7 +43,7 @@ export class RequestCacheService {
     getCorrectedPosition(id) {
         if(this.requests.length > 0) {
             const request = this.requests.front;
-
+            console.error(request);
             if(request.id > id) {
                 return;
             }
@@ -56,6 +56,7 @@ export class RequestCacheService {
                 return this.lastCorrectRequest;
             }
         }
+        return null;
     }
 
     get lastCorrectRequest(): Request {

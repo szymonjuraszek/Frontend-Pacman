@@ -1,117 +1,54 @@
 import {Injectable} from '@angular/core';
 import {Communicator} from "../Communicator";
-import {Direction} from "../Direction";
 import {MeasurementService} from "../../cache/measurement.service";
 import RSocketWebSocketClient from 'rsocket-websocket-client';
-import {Flowable, Single, every} from 'rsocket-flowable';
-// import RSocketTcpClient from 'rsocket-tcp-client';
-import {IdentitySerializer, JsonSerializer, RSocketClient, Lease} from 'rsocket-core';
+import {IdentitySerializer, JsonSerializer, RSocketClient} from 'rsocket-core';
 import {BehaviorSubject} from "rxjs";
 import {SocketClientState} from "../SocketClientState";
-import {Responder, Payload} from 'rsocket-types';
-
-
-function make(data: string): Payload<string, string> {
-    return {
-        data,
-        metadata: '',
-    };
-}
-
-function logRequest(type: string, payload: Payload<string, string>) {
-    console.log(`Responder response to ${type}, data: ${payload.data || 'null'}`);
-}
-
-class EchoResponder implements Responder<string, string>{
-    private callback: any;
-    constructor(callback) {
-        this.callback = callback;
-    }
-    fireAndForget(payload) {
-        console.error('Jestem w fire and forget')
-        this.callback(payload);
-    }
-    requestResponse(payload): Single<Payload<string, string>> {
-        logRequest('request-response', payload);
-        return Single.of(make('client response'));
-    }
-    // metadataPush(payload: Payload<string, string>): Single<void> {
-    //     return Single.error(new Error('not implemented'));
-    // }
-    //
-    // fireAndForget(payload: Payload<string, string>): void {
-    //     logRequest('fire-and-forget', payload);
-    // }
-    //
-    // requestResponse(
-    //     payload: Payload<string, string>,
-    // ): Single<Payload<string, string>> {
-    //     logRequest('request-response', payload);
-    //     return Single.of(make('client response'));
-    // }
-    //
-    // requestStream(
-    //     payload: Payload<string, string>,
-    // ): Flowable<Payload<string, string>> {
-    //     logRequest('request-stream', payload);
-    //     return Flowable.just(make('client stream response'));
-    // }
-    //
-    // requestChannel(
-    //     payloads: Flowable<Payload<string, string>>,
-    // ): Flowable<Payload<string, string>> {
-    //     return Flowable.just(make('client channel response'));
-    // }
-}
-
-// const receivedLeasesLogger: (Flowable<Lease>) = (lease) =>
-//     lease.subscribe({
-//         onSubscribe: s => s.request(Number.MAX_SAFE_INTEGER),
-//         onNext: lease =>
-//             console.log(
-//                 `Received lease - ttl: ${lease.timeToLiveMillis}, requests: ${lease.allowedRequests}`,
-//             ),
-//     });
-//
-// function periodicLeaseSender(
-//     intervalMillis: number,
-//     ttl: number,
-//     allowedRequests: number,
-// ): Flowable<Lease> {
-//     return every(intervalMillis).map(v => {
-//         console.log(`Sent lease - ttl: ${ttl}, requests: ${allowedRequests}`);
-//         return new Lease(ttl, allowedRequests);
-//     });
-// }
-
-
+import {RequestCacheService} from "../../cache/request-cache.service";
+import {Player} from "../../model/Player";
+import {RSOCKET_URL_MAIN} from "../../../../global-config";
+import {DownloadService} from "../../downloader/download.service";
 
 @Injectable({
     providedIn: 'root'
 })
 export class RsocketService extends Communicator {
-    private readonly client: RSocketClient;
-    private sessionId = this.randomString(8, '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ');
-    private nickname = this.randomString(4, '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ');
-
+    private client: RSocketClient;
     private rsocketObject: RSocketWebSocketClient;
 
-    randomString(length, chars) {
-        let result = '';
-        for (let i = length; i > 0; --i) {
-            result += chars[Math.floor(Math.random() * chars.length)];
-        }
-        return result;
+    private coinRefreshSub: any;
+    private coinGetSub: any;
+    private monstersUpdateSub: any;
+    private playersAddedSub: any;
+    private playerRemoveSub: any;
+    private playerUpdateSub: any;
+    private playerUpdateUserSub: any;
+
+    constructor(private measurementService: MeasurementService,private requestCache: RequestCacheService,
+    private downloaderService: DownloadService) {
+        super(RSOCKET_URL_MAIN);
     }
 
-    constructor(private measurementService: MeasurementService) {
-        super('ws://localhost:7000/rsocket');
-        const messageReceiver = payload => {
-            //do what you want to do with received message
-            console.error('Wyswietlam info ');
-            console.log(payload)
-        };
+    disconnect() {
+        this.coinRefreshSub.cancel();
+        this.coinGetSub.cancel();
+        this.monstersUpdateSub.cancel();
+        this.playersAddedSub.cancel();
+        this.playerRemoveSub.cancel();
+        this.playerUpdateSub.cancel();
+        this.playerUpdateUserSub.cancel();
 
+        this.rsocketObject.fireAndForget({
+            data: {
+                'nickname': this.myNickname
+            },
+            metadata: String.fromCharCode('disconnect'.length) + 'disconnect',
+        });
+        this.client.close();
+    }
+
+    initializeConnection() {
         this.client = new RSocketClient({
             serializers: {
                 data: JsonSerializer,
@@ -128,50 +65,180 @@ export class RsocketService extends Communicator {
                 metadataMimeType: 'message/x.rsocket.routing.v0',
                 payload: {
                     data: {
-                        sessionId: this.sessionId,
-                        nickname: this.nickname
+                        nickname: this.myNickname
                     }
                 },
             },
-            responder: new EchoResponder(messageReceiver),
-            // leases: () => {
-            //     console.error('Jestem w leases');
-            // }
-            // ,
             transport: new RSocketWebSocketClient({
                 url: this.serverUrl
             }),
         });
-    }
 
-    disconnect() {
-    }
-
-    initializeConnection() {
         this.state = new BehaviorSubject<SocketClientState>(SocketClientState.ATTEMPTING);
 
         this.client.connect().subscribe({
             onComplete: socket => {
+                console.error(socket)
 
                 this.rsocketObject = socket;
+                this.downloaderService.rsocketObject = socket;
 
                 socket.requestStream({
-                    data: {
-                        'author': 'linustorvalds'
-                    },
-                    metadata: String.fromCharCode('tweets'.length) + 'tweets',
+                    metadata: String.fromCharCode('monstersUpdate'.length) + 'monstersUpdate',
                 }).subscribe({
                     onComplete: () => console.log('complete'),
                     onError: error => {
                         console.log(error);
+                        this.state.next(SocketClientState.ERROR);
                     },
                     onNext: payload => {
-                        console.log(payload.data);
-                        // console.error(socket);
+                        this.monsterToUpdate.next(payload.data);
                     },
                     onSubscribe: subscription => {
-                        console.error('Subskrybuje')
-                        subscription.request(2147483647);
+                        console.error('========= Subskrybuje monsterUpdate ============')
+                        subscription.request(2147483640);
+                        this.monstersUpdateSub = subscription;
+                    }
+                });
+
+                socket.requestStream({
+                    metadata: String.fromCharCode('playersAdded'.length) + 'playersAdded',
+                }).subscribe({
+                    onComplete: () => console.log('complete'),
+                    onError: error => {
+                        console.log(error);
+                        this.state.next(SocketClientState.ERROR);
+                    },
+                    onNext: payload => {
+                        this.playersToAdd.next(payload.data);
+                    },
+                    onSubscribe: subscription => {
+                        console.error('======== Subskrybuje playersAdded ===========')
+                        subscription.request(2147483641);
+                        this.playersAddedSub = subscription;
+                    },
+                });
+
+                socket.requestStream({
+                    metadata: String.fromCharCode('playerRemove'.length) + 'playerRemove',
+                }).subscribe({
+                    onComplete: () => console.log('complete'),
+                    onError: error => {
+                        console.log(error);
+                        this.state.next(SocketClientState.ERROR);
+                    },
+                    onNext: payload => {
+                        this.playerToRemove.next(payload.data);
+                    },
+                    onSubscribe: subscription => {
+                        console.error('========= Subskrybuje playerRemove ============')
+                        subscription.request(2147483642);
+                        this.playerRemoveSub = subscription;
+                    },
+                });
+
+                socket.requestStream({
+                    metadata: String.fromCharCode('playerUpdate'.length) + 'playerUpdate',
+                }).subscribe({
+                    onComplete: () => console.log('complete'),
+                    onError: error => {
+                        console.log(error);
+                        this.state.next(SocketClientState.ERROR);
+                    },
+                    onNext: playerToUpdate => {
+                        const parsedPlayer: Player = playerToUpdate.data
+                        // console.error(parsedPlayer);
+
+                        const responseTimeInMillis = new Date().getTime() - Number(playerToUpdate.data.timestamp);
+                        // console.error("Odpowiedz serwera " + responseTimeInMillis + " milliseconds")
+
+                        this.measurementService.addMeasurementResponse(responseTimeInMillis, playerToUpdate.data.timestamp, parsedPlayer.version);
+
+                        if (parsedPlayer.nickname === this.myNickname) {
+                            const request = this.requestCache.getRequest(parsedPlayer.version);
+                            this.updateScore.next(parsedPlayer.score);
+                            if (request !== null && (request.x !== parsedPlayer.positionX || request.y !== parsedPlayer.positionY)) {
+                                this.playerToUpdate.next(parsedPlayer);
+                            }
+                        } else {
+                            this.playerToUpdate.next(parsedPlayer);
+                        }
+                    },
+                    onSubscribe: subscription => {
+                        console.error('========= Subskrybuje playerUpdate ============')
+                        subscription.request(2147483643);
+                        this.playerUpdateSub = subscription;
+                    },
+                });
+
+                socket.requestStream({
+                    data: {
+                        nickname: this.myNickname
+                    },
+                    metadata: String.fromCharCode('playerUpdateUser'.length) + 'playerUpdateUser',
+                }).subscribe({
+                    onComplete: () => console.log('complete'),
+                    onError: error => {
+                        console.log(error);
+                        this.state.next(SocketClientState.ERROR);
+                    },
+                    onNext: playerToUpdate => {
+                        console.error('Specific endpoint for player')
+                        const parsedPlayer: Player = playerToUpdate.data;
+
+                        const responseTimeInMillis = new Date().getTime() - Number(playerToUpdate.data.timestamp);
+
+                        this.measurementService.addMeasurementResponse(responseTimeInMillis, playerToUpdate.data.timestamp, parsedPlayer.version);
+
+                        const request = this.requestCache.getCorrectedPosition(parsedPlayer.version);
+                        console.error(request);
+
+                        if (request !== null) {
+                            parsedPlayer.positionX = request.x;
+                            parsedPlayer.positionY = request.y;
+                            this.playerToUpdate.next(parsedPlayer);
+                        }
+                    },
+                    onSubscribe: subscription => {
+                        console.error('========= Subskrybuje specificPlayerUpdate ============')
+                        subscription.request(2147483644);
+                        this.playerUpdateUserSub = subscription;
+                    },
+                });
+
+                socket.requestStream({
+                    metadata: String.fromCharCode('coinGet'.length) + 'coinGet',
+                }).subscribe({
+                    onComplete: () => console.log('complete'),
+                    onError: error => {
+                        console.log(error);
+                        this.state.next(SocketClientState.ERROR);
+                    },
+                    onNext: payload => {
+                        this.coinToGet.next(payload.data);
+                    },
+                    onSubscribe: subscription => {
+                        console.error('========= Subskrybuje coinGet ============')
+                        subscription.request(2147483645);
+                        this.coinGetSub = subscription;
+                    },
+                });
+
+                socket.requestStream({
+                    metadata: String.fromCharCode('coinRefresh'.length) + 'coinRefresh',
+                }).subscribe({
+                    onComplete: () => console.log('complete'),
+                    onError: error => {
+                        console.log(error);
+                        this.state.next(SocketClientState.ERROR);
+                    },
+                    onNext: payload => {
+                        this.refreshCoin.next();
+                    },
+                    onSubscribe: subscription => {
+                        console.error('========= Subskrybuje refershCoin ============')
+                        subscription.request(2147483646);
+                        this.coinRefreshSub = subscription;
                     },
                 });
 
@@ -182,135 +249,51 @@ export class RsocketService extends Communicator {
                 this.state.next(SocketClientState.ERROR);
             },
             onSubscribe: cancel => {
-                /* call cancel() to abort */
             }
         });
     }
 
     joinToGame(nickname: string) {
-        console.error('Jestem w joinToGame()')
         this.rsocketObject
             .requestResponse({
-                data: {
-                    nickname: nickname
-                },
                 metadata: String.fromCharCode('joinToGame'.length) + 'joinToGame',
             }).subscribe({
             onComplete: currentCoinPosition => {
-                console.error('fdsfdsfdsfdsfdsfsdf')
-                console.error(currentCoinPosition);
                 this.ifJoinGame.next(currentCoinPosition.data);
             },
             onError: error => {
                 console.log('got error with requestResponse');
                 console.error(error);
-            },
-            onSubscribe: cancel => {
+                this.state.next(SocketClientState.ERROR);
             }
         });
     }
 
-    sendPosition(x: number, y: number, nickname: string, score: number, stepDirection: Direction) {
-
-        // this.rsocketObject.requestStream({
-        //     data: 'ljklkjl',
-        //     metadata: String.fromCharCode('monster'.length) + 'monster',
-        // }).subscribe({
-        //     onComplete: () => console.log('complete'),
-        //     onError: error => {
-        //         console.log(error);
-        //     },
-        //     onNext: payload => {
-        //         console.error('Cos tam')
-        //         console.log(payload.data);
-        //     },
-        //     onSubscribe: subscription => {
-        //         console.error('Subskrybuje example')
-        //         subscription.request(200);
-        //     },
-        // });
-
-
-
-
-        const flowablePayload = new Flowable(subscriber => {
-            subscriber.onSubscribe({
-                cancel: () => {
-                },
-                request: n => {
-                    console.error('Robie requesta');
-                        const message = {
-                                nickname: nickname,
-                                positionX: x,
-                                positionY: y,
-                                score: score,
-                                stepDirection: stepDirection,
-                                requestTimestamp: new Date().getTime()
-                            };
-                        subscriber.onNext(message);
-                    subscriber.onComplete();
-                }
-            });
+    sendPosition(data) {
+        this.rsocketObject.fireAndForget({
+            data,
+            metadata: String.fromCharCode('sendPosition'.length) + 'sendPosition',
         });
-
-        this.rsocketObject
-            .requestChannel(
-                Flowable.just({
-                    data: {
-                        nickname: 'sajmon',
-                        positionX: 12,
-                        positionY: 13,
-                        score: 99,
-                        stepDirection: Direction.VERTICAL,
-                        requestTimestamp: new Date().getTime()
-                    },
-                    metadata: String.fromCharCode('example'.length) + 'example',
-                }))
-            .subscribe({
-                onComplete: () => {
-                    console.log("requestChannel done");
-                },
-                onError: error => {
-                    console.log("got error with requestChannel");
-                    console.error(error);
-                },
-                onNext: value => {
-                    console.log("got next value in requestChannel..");
-                    console.error(value);
-                },
-                // Nothing happens until `request(n)` is called
-                onSubscribe: sub => {
-                    console.log("subscribe request Channel!");
-                    // console.error(sub);
-                    sub.request(10);
-                }
-            });
-
-        console.error('Wysylam pozycje');
-
     }
 
     addPlayer(nickname: string) {
-        this.rsocketObject.requestStream({
+        this.rsocketObject.fireAndForget({
             data: {
                 nickname: nickname
             },
             metadata: String.fromCharCode('addNewPlayers'.length) + 'addNewPlayers',
-        }).subscribe({
-            onComplete: () => console.log('complete'),
-            onError: error => {
-                console.log(error);
-            },
-            onNext: gameToAddPlayer => {
-                console.log('reaguje na otrzymane dane');
-                console.log(gameToAddPlayer.data);
-                this.playersToAdd.next(gameToAddPlayer.data);
-            },
-            onSubscribe: subscription => {
-                console.error('I subscribe request stream');
-                console.error(subscription);
-                subscription.request(2147483647);
-            },
         });
     }
 }
+
+// private sessionId = this.randomString(8, '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ');
+// private nickname = this.randomString(4, '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ');
+
+
+// randomString(length, chars) {
+//     let result = '';
+//     for (let i = length; i > 0; --i) {
+//         result += chars[Math.floor(Math.random() * chars.length)];
+//     }
+//     return result;
+// }
