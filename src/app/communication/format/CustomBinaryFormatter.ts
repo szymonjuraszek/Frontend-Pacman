@@ -53,4 +53,8 @@ export class CustomBinaryFormatter implements IFormatter {
 
         return dataToSend;
     }
+
+    prepareNicknamePayload(nickname: string) {
+        throw new Error("Method not implemented.");
+    }
 }

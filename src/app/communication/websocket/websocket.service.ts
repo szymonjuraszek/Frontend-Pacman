@@ -27,7 +27,7 @@ export class WebsocketService extends Communicator {
         private requestCache: RequestCacheService,
     ) {
         super(WEBSOCKET_URL_MAIN);
-        this.setFormatter(new CustomBinaryFormatter());
+        this.setFormatter(new ProtobufFormatter());
     }
 
     initializeConnection() {
@@ -40,13 +40,18 @@ export class WebsocketService extends Communicator {
             debug: function (str) {
                 console.log(str);
             },
+            // maxWebSocketChunkSize: 5000,
             splitLargeFrames: true,
             reconnectDelay: 5000,
             heartbeatIncoming: 4000,
             heartbeatOutgoing: 4000
         });
 
-        this.stompClient.onConnect = () => {
+        this.stompClient.debug = () => {};
+
+        this.stompClient.onConnect = (frame) => {
+
+            console.error(frame)
             this.stompClient.subscribe('/pacman/add/players', (gameToAddPlayer) => {
                 this.playersToAdd.next(JSON.parse(gameToAddPlayer.body));
                 console.error('Zaktualizowano gre, dodano gracza');
@@ -59,12 +64,11 @@ export class WebsocketService extends Communicator {
 
             this.stompClient.subscribe('/pacman/update/player', (playerToUpdate) => {
                 const parsedPlayer = this.formatter.decodePlayer(playerToUpdate);
-                console.error(parsedPlayer);
 
                 const responseTimeInMillis = new Date().getTime() - Number(playerToUpdate.headers.timestamp);
                 // console.error("Odpowiedz serwera " + responseTimeInMillis + " milliseconds")
 
-                this.measurementService.addMeasurementResponse(responseTimeInMillis, playerToUpdate.headers.timestamp, parsedPlayer.version);
+                this.measurementService.addMeasurementResponse(parsedPlayer.nickname, responseTimeInMillis, playerToUpdate.headers.timestamp, parsedPlayer.version);
 
                 if (parsedPlayer.nickname === this.myNickname) {
                     const request = this.requestCache.getRequest(parsedPlayer.version);
@@ -78,7 +82,9 @@ export class WebsocketService extends Communicator {
             });
 
             this.stompClient.subscribe('/pacman/update/monster', (monster) => {
-                this.monsterToUpdate.next(this.formatter.decodeMonster(monster));
+                const monsterParsed = this.formatter.decodeMonster(monster);
+                this.measurementService.addMeasurementResponse(monsterParsed.id, new Date().getTime() - Number(monster.headers.timestamp), monster.headers.timestamp,0);
+                this.monsterToUpdate.next(monsterParsed);
             });
 
             this.stompClient.subscribe('/pacman/refresh/coins', () => {
@@ -98,7 +104,7 @@ export class WebsocketService extends Communicator {
 
                 const responseTimeInMillis = new Date().getTime() - Number(playerToUpdate.headers.timestamp);
 
-                this.measurementService.addMeasurementResponse(responseTimeInMillis, playerToUpdate.headers.timestamp, parsedPlayer.version);
+                this.measurementService.addMeasurementResponse(parsedPlayer.nickname, responseTimeInMillis, playerToUpdate.headers.timestamp, parsedPlayer.version);
 
                 const request = this.requestCache.getCorrectedPosition(parsedPlayer.version);
 

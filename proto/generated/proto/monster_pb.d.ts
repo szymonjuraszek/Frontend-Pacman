@@ -16,6 +16,9 @@ export class MonsterProto extends jspb.Message {
   getPreviousDirection(): string;
   setPreviousDirection(value: string): void;
 
+  getTimestamp(): number;
+  setTimestamp(value: number): void;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): MonsterProto.AsObject;
   static toObject(includeInstance: boolean, msg: MonsterProto): MonsterProto.AsObject;
@@ -32,6 +35,7 @@ export namespace MonsterProto {
     positionX: number,
     positionY: number,
     previousDirection: string,
+    timestamp: number,
   }
 }
 

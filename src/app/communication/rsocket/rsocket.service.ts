@@ -2,13 +2,17 @@ import {Injectable} from '@angular/core';
 import {Communicator} from "../Communicator";
 import {MeasurementService} from "../../cache/measurement.service";
 import RSocketWebSocketClient from 'rsocket-websocket-client';
-import {IdentitySerializer, JsonSerializer, RSocketClient} from 'rsocket-core';
+import {RSocketClient} from 'rsocket-core';
 import {BehaviorSubject} from "rxjs";
 import {SocketClientState} from "../SocketClientState";
 import {RequestCacheService} from "../../cache/request-cache.service";
 import {Player} from "../../model/Player";
-import {RSOCKET_URL_MAIN} from "../../../../global-config";
+import {DATA_MIME_TYPE, RSOCKET_URL_MAIN, SERIALIZER_DATA, SERIALIZER_METADATA} from "../../../../global-config";
 import {DownloadService} from "../../downloader/download.service";
+import {IFormatter} from "../format/IFormatter";
+import {CustomBinaryFormatter} from "../format/CustomBinaryFormatter";
+import {ProtobufFormatter} from "../format/ProtobufFormatter";
+import {JsonFormatter} from "../format/JsonFormatter";
 
 @Injectable({
     providedIn: 'root'
@@ -25,34 +29,23 @@ export class RsocketService extends Communicator {
     private playerUpdateSub: any;
     private playerUpdateUserSub: any;
 
-    constructor(private measurementService: MeasurementService,private requestCache: RequestCacheService,
-    private downloaderService: DownloadService) {
+    private formatter: IFormatter;
+
+    constructor(
+        private measurementService: MeasurementService,
+        private requestCache: RequestCacheService,
+        private downloaderService: DownloadService
+    ) {
         super(RSOCKET_URL_MAIN);
-    }
-
-    disconnect() {
-        this.coinRefreshSub.cancel();
-        this.coinGetSub.cancel();
-        this.monstersUpdateSub.cancel();
-        this.playersAddedSub.cancel();
-        this.playerRemoveSub.cancel();
-        this.playerUpdateSub.cancel();
-        this.playerUpdateUserSub.cancel();
-
-        this.rsocketObject.fireAndForget({
-            data: {
-                'nickname': this.myNickname
-            },
-            metadata: String.fromCharCode('disconnect'.length) + 'disconnect',
-        });
-        this.client.close();
+        // right now only support for json
+        this.setFormatter(new JsonFormatter());
     }
 
     initializeConnection() {
         this.client = new RSocketClient({
             serializers: {
-                data: JsonSerializer,
-                metadata: IdentitySerializer
+                data: SERIALIZER_DATA,
+                metadata: SERIALIZER_METADATA
             },
             setup: {
                 // ms btw sending keepalive to server
@@ -60,25 +53,22 @@ export class RsocketService extends Communicator {
                 // ms timeout if no keepalive response
                 lifetime: 180000,
                 // format of `data`
-                dataMimeType: 'application/json',
+                dataMimeType: DATA_MIME_TYPE,
                 // format of `metadata`
                 metadataMimeType: 'message/x.rsocket.routing.v0',
                 payload: {
-                    data: {
-                        nickname: this.myNickname
-                    }
-                },
+                    data: this.formatter.prepareNicknamePayload(this.myNickname)
+                }
             },
             transport: new RSocketWebSocketClient({
                 url: this.serverUrl
-            }),
+            })
         });
 
         this.state = new BehaviorSubject<SocketClientState>(SocketClientState.ATTEMPTING);
 
         this.client.connect().subscribe({
             onComplete: socket => {
-                console.error(socket)
 
                 this.rsocketObject = socket;
                 this.downloaderService.rsocketObject = socket;
@@ -92,6 +82,7 @@ export class RsocketService extends Communicator {
                         this.state.next(SocketClientState.ERROR);
                     },
                     onNext: payload => {
+                        this.measurementService.addMeasurementResponse(payload.data.id, new Date().getTime() - Number(payload.data.timestamp), payload.data.timestamp,0);
                         this.monsterToUpdate.next(payload.data);
                     },
                     onSubscribe: subscription => {
@@ -110,6 +101,7 @@ export class RsocketService extends Communicator {
                         this.state.next(SocketClientState.ERROR);
                     },
                     onNext: payload => {
+                        console.error('Dodaje gracza')
                         this.playersToAdd.next(payload.data);
                     },
                     onSubscribe: subscription => {
@@ -147,12 +139,11 @@ export class RsocketService extends Communicator {
                     },
                     onNext: playerToUpdate => {
                         const parsedPlayer: Player = playerToUpdate.data
-                        // console.error(parsedPlayer);
 
                         const responseTimeInMillis = new Date().getTime() - Number(playerToUpdate.data.timestamp);
                         // console.error("Odpowiedz serwera " + responseTimeInMillis + " milliseconds")
 
-                        this.measurementService.addMeasurementResponse(responseTimeInMillis, playerToUpdate.data.timestamp, parsedPlayer.version);
+                        this.measurementService.addMeasurementResponse(parsedPlayer.nickname, responseTimeInMillis, playerToUpdate.data.timestamp, parsedPlayer.version);
 
                         if (parsedPlayer.nickname === this.myNickname) {
                             const request = this.requestCache.getRequest(parsedPlayer.version);
@@ -172,9 +163,7 @@ export class RsocketService extends Communicator {
                 });
 
                 socket.requestStream({
-                    data: {
-                        nickname: this.myNickname
-                    },
+                    data: this.formatter.prepareNicknamePayload(this.myNickname),
                     metadata: String.fromCharCode('playerUpdateUser'.length) + 'playerUpdateUser',
                 }).subscribe({
                     onComplete: () => console.log('complete'),
@@ -188,7 +177,7 @@ export class RsocketService extends Communicator {
 
                         const responseTimeInMillis = new Date().getTime() - Number(playerToUpdate.data.timestamp);
 
-                        this.measurementService.addMeasurementResponse(responseTimeInMillis, playerToUpdate.data.timestamp, parsedPlayer.version);
+                        this.measurementService.addMeasurementResponse(parsedPlayer.nickname, responseTimeInMillis, playerToUpdate.data.timestamp, parsedPlayer.version);
 
                         const request = this.requestCache.getCorrectedPosition(parsedPlayer.version);
                         console.error(request);
@@ -269,31 +258,39 @@ export class RsocketService extends Communicator {
         });
     }
 
-    sendPosition(data) {
+    sendPosition(dataToSend) {
+        const encodedData = this.formatter.encode(dataToSend);
         this.rsocketObject.fireAndForget({
-            data,
-            metadata: String.fromCharCode('sendPosition'.length) + 'sendPosition',
+            data: encodedData,
+            metadata: String.fromCharCode('sendPosition'.length) + 'sendPosition'
+
         });
     }
 
     addPlayer(nickname: string) {
         this.rsocketObject.fireAndForget({
-            data: {
-                nickname: nickname
-            },
+            data: this.formatter.prepareNicknamePayload(this.myNickname),
             metadata: String.fromCharCode('addNewPlayers'.length) + 'addNewPlayers',
         });
     }
+
+    disconnect() {
+        this.coinRefreshSub.cancel();
+        this.coinGetSub.cancel();
+        this.monstersUpdateSub.cancel();
+        this.playersAddedSub.cancel();
+        this.playerRemoveSub.cancel();
+        this.playerUpdateSub.cancel();
+        this.playerUpdateUserSub.cancel();
+
+        this.rsocketObject.fireAndForget({
+            data: this.formatter.prepareNicknamePayload(this.myNickname),
+            metadata: String.fromCharCode('disconnect'.length) + 'disconnect',
+        });
+        this.client.close();
+    }
+
+    setFormatter(formatter) {
+        this.formatter = formatter;
+    }
 }
-
-// private sessionId = this.randomString(8, '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ');
-// private nickname = this.randomString(4, '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ');
-
-
-// randomString(length, chars) {
-//     let result = '';
-//     for (let i = length; i > 0; --i) {
-//         result += chars[Math.floor(Math.random() * chars.length)];
-//     }
-//     return result;
-// }

@@ -16,7 +16,7 @@ export class ProtobufFormatter implements IFormatter{
         return PlayerProto.deserializeBinary(data.binaryBody).toObject();
     }
 
-    encode(data) {
+    encode(data): PlayerProto {
         const playerProto = new PlayerProto();
         playerProto.setNickname(data.nickname);
         playerProto.setPositionX(data.positionX);
@@ -28,4 +28,7 @@ export class ProtobufFormatter implements IFormatter{
         return playerProto;
     }
 
+    prepareNicknamePayload(nickname: string) {
+        return nickname;
+    }
 }

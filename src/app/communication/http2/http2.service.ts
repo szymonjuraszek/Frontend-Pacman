@@ -2,13 +2,14 @@ import {Injectable} from '@angular/core';
 import {Communicator} from "../Communicator";
 import {MeasurementService} from "../../cache/measurement.service";
 import {Direction} from "../Direction";
-import {BehaviorSubject} from "rxjs";
+import {BehaviorSubject, interval} from "rxjs";
 import {SocketClientState} from "../SocketClientState";
 import {HttpClient, HttpHeaders, HttpParams, HttpResponse} from "@angular/common/http";
 import {Coin} from "../../model/Coin";
 import {Player} from "../../model/Player";
 import {RequestCacheService} from "../../cache/request-cache.service";
 import {HTTP_URL_MAIN} from "../../../../global-config";
+import {Monster} from "../../model/Monster";
 
 @Injectable({
     providedIn: 'root'
@@ -23,6 +24,9 @@ export class Http2Service extends Communicator {
 
     initializeConnection() {
         this.state = new BehaviorSubject<SocketClientState>(SocketClientState.CONNECTED);
+        // setTimeout(() => {
+        //     this.updatePlayersMap();
+        // },3000);
     }
 
     disconnect() {
@@ -43,7 +47,9 @@ export class Http2Service extends Communicator {
                     this.eventSource = new EventSource(this.serverUrl + "/emitter/" + this.nickname);
 
                     this.eventSource.addEventListener('/pacman/update/monster', (monsterPositionEvent: MessageEvent) => {
-                        this.monsterToUpdate.next(JSON.parse(monsterPositionEvent.data));
+                        let monsterParsed = JSON.parse(monsterPositionEvent.data);
+                        this.saveResponseTime(monsterParsed.id, Number.parseInt(monsterParsed.timestamp), 0);
+                        this.monsterToUpdate.next(monsterParsed);
                     });
                     this.eventSource.addEventListener('/pacman/get/coin', (coinPositionEvent: MessageEvent) => {
                         console.error('Zbieram coina');
@@ -62,9 +68,9 @@ export class Http2Service extends Communicator {
                         this.playersToAdd.next(JSON.parse(playerToAddEvent.data));
                     });
                     this.eventSource.addEventListener('/pacman/update/player', (playerToUpdateEvent: MessageEvent) => {
-                        let playerToUpdate = JSON.parse(playerToUpdateEvent.data);
-                        this.saveResponseTime(playerToUpdate.timestamp, playerToUpdate.version);
-                        this.playerToUpdate.next(playerToUpdate);
+                        const playersToUpdateClass = JSON.parse(playerToUpdateEvent.data);
+                        this.saveResponseTime(playersToUpdateClass.nickname, playersToUpdateClass.timestamp, playersToUpdateClass.version);
+                        this.playerToUpdate.next(playersToUpdateClass);
                     });
 
                     this.http.get(this.serverUrl + "/coins").subscribe((coinsPosition: Array<Coin>) => {
@@ -96,7 +102,7 @@ export class Http2Service extends Communicator {
             },
             observe: 'response'
         }).subscribe((player: HttpResponse<Player>) => {
-            this.saveResponseTime(Number(player.headers.get('timestamp')), player.body.version);
+            this.saveResponseTime(player.body.nickname, Number(player.headers.get('timestamp')), player.body.version);
 
             if (player.status === 202) {
                 const request = this.requestCache.getCorrectedPosition(player.body.version);
@@ -117,15 +123,11 @@ export class Http2Service extends Communicator {
                 this.playerToRemove.next(player.body);
             }
         });
-
-        this.http.get(this.serverUrl + "/stream").subscribe((data) => {
-            console.error(data);
-        });
     }
 
-    saveResponseTime(timestampFromServer: number, version: number) {
+    saveResponseTime(id: string, timestampFromServer: number, version: number) {
         const responseTimeInMillis = new Date().getTime() - timestampFromServer;
         console.error("Odpowiedz serwera " + responseTimeInMillis + " milliseconds");
-        this.measurementService.addMeasurementResponse(responseTimeInMillis, timestampFromServer, version);
+        this.measurementService.addMeasurementResponse(id, responseTimeInMillis, timestampFromServer, version);
     }
 }

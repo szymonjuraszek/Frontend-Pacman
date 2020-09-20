@@ -15,13 +15,19 @@ import {MeasurementService} from "../../cache/measurement.service";
 import {RequestCacheService} from "../../cache/request-cache.service";
 import {Request} from "../../model/Request";
 import {RsocketService} from "../../communication/rsocket/rsocket.service";
+import {RSocketSimulationConnection} from "../../communication/simulation/rsocket/RSocketSimulationConnection";
+
+// @ts-ignore
+import *  as  data from '../../../../rsocketData.json';
+import {WebsocketSimulationConnection} from "../../communication/simulation/websocket/WebsocketSimulationConnection";
+import {AdditionalObject} from "../../communication/simulation/data/AdditionalObject";
 
 @Component({
     selector: 'app-main-scene',
     providers: [
         {
             provide: Communicator,
-            useClass: RsocketService
+            useClass: Http2Service
         }
     ],
     templateUrl: './main-scene.component.html',
@@ -36,6 +42,10 @@ export class MainSceneComponent extends Phaser.Scene {
     }
 
     private board: Phaser.Tilemaps.Tilemap;
+    private additionalData = this.randomString(50, '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
+
+    private arrayWithAdditionalData: Array<AdditionalObject> = new Array<AdditionalObject>(20);
+
 
     private pathLayer: Phaser.Tilemaps.DynamicTilemapLayer;
     private _backgroundLayer: Phaser.Tilemaps.DynamicTilemapLayer;
@@ -65,6 +75,7 @@ export class MainSceneComponent extends Phaser.Scene {
     private subscription8: Subscription;
     private subscription9: Subscription;
     private subscription10: Subscription;
+
     private positionSender: Observable<number>;
     private lastX: number;
     private lastY: number;
@@ -77,6 +88,8 @@ export class MainSceneComponent extends Phaser.Scene {
     private scoreNumber1: any;
     private scoreNumber2: any;
     private scoreNumber3: any;
+
+    private simulationConnection = new Array(10);
 
     constructor(
         private websocketService: Communicator,
@@ -97,6 +110,18 @@ export class MainSceneComponent extends Phaser.Scene {
 
     startGame() {
         this.websocketService.initializeConnection();
+        const tab = (data as any).default;
+
+        for (let i = 0; i < this.arrayWithAdditionalData.length; i++) {
+            this.arrayWithAdditionalData[i] = new AdditionalObject(5555, this.additionalData);
+        }
+        // setTimeout(() => {
+        //         for (let i = 0; i < tab.length; i++) {
+        //             this.simulationConnection[i] = new WebsocketSimulationConnection(tab[i].nickname);
+        //             this.simulationConnection[i].initializeConnection(tab[i],4000 + 500 * i);
+        //         }
+        //     }, 5000
+        // )
 
         this.subscription2 = this.websocketService.getState().subscribe(state => {
             if (state === SocketClientState.CONNECTED) {
@@ -232,7 +257,7 @@ export class MainSceneComponent extends Phaser.Scene {
     }
 
     update() {
-        console.log('PETLA GRA');
+        // console.log('PETLA GRA');
         if (this.startSendingPlayerPosition) {
             this.movePlayerManager();
         }
@@ -317,20 +342,49 @@ export class MainSceneComponent extends Phaser.Scene {
                 currentPlayer.x = player.positionX;
                 currentPlayer.y = player.positionY;
                 currentPlayer.score = player.score;
+                console.error('current player')
             }
-
-            // currentPlayer.score = player.score;
-            // console.error(currentPlayer.x + "   " + currentPlayer.y);
-            // this.checkRanking(player);
         })
     }
 
     // 50 FPS dla 20 milis
     sendPlayerPosition() {
         const player = this.players.get(this.myPlayerName);
+        // this.lastAngle = player.angle;
+        //
+        // this.setDeceleratingTimeout(()=> {
+        //     const player: Player = this.players.get(this.myPlayerName);
+        //     this.requestCache.addRequest(++this.counterRequest, player.x, player.y);
+        //     if(this.arrayWithAdditionalData.length < 2000) {
+        //         this.arrayWithAdditionalData.push(new AdditionalObject(5555,this.additionalData));
+        //     }
+        //
+        //     this.websocketService.sendPosition({
+        //         "nickname": this.myPlayerName,
+        //         "positionX": player.x,
+        //         "positionY": player.y,
+        //         "score": player.score,
+        //         "stepDirection": this.getDirection(),
+        //         "version": this.counterRequest,
+        //         "requestTimestamp": new Date().getTime(),
+        //         // "additionalData": this.arrayWithAdditionalData
+        //     });
+        //
+        //     }, 1, 10000);
         this.lastX = player.x;
         this.lastY = player.y;
         this.lastAngle = player.angle;
+
+        // const dataProvider = interval(1000);
+        // const subscriptionDataProvider = dataProvider.subscribe(()=> {
+        //     for(let i =0;i<10;i++) {
+        //         this.arrayWithAdditionalData.push(new AdditionalObject(5555,this.additionalData));
+        //     }
+        //     if(this.arrayWithAdditionalData.length > 400) {
+        //         subscriptionDataProvider.unsubscribe();
+        //         this.subscription7.unsubscribe();
+        //     }
+        // });
 
         this.positionSender = interval(20);
         this.subscription7 = this.positionSender.subscribe(() => {
@@ -342,10 +396,9 @@ export class MainSceneComponent extends Phaser.Scene {
                 this.lastX = player.x;
                 this.lastY = player.y;
                 this.lastAngle = player.angle;
-                // console.error(player);
-                // console.error(player.x);
-                // console.error(player.y);
+
                 this.requestCache.addRequest(++this.counterRequest, player.x, player.y);
+
                 this.websocketService.sendPosition({
                     "nickname": this.myPlayerName,
                     "positionX": player.x,
@@ -354,9 +407,31 @@ export class MainSceneComponent extends Phaser.Scene {
                     "stepDirection": this.getDirection(),
                     "version": this.counterRequest,
                     "requestTimestamp": new Date().getTime()
+                    // "additionalData": this.arrayWithAdditionalData
                 });
             }
         });
+    }
+
+    setDeceleratingTimeout(callback, factor, times) {
+        var internalCallback = function(tick, counter) {
+            return function() {
+                if (--tick >= 0) {
+                    window.setTimeout(internalCallback, (20000-(++counter*factor))/1000);
+                    callback();
+                }
+            }
+        }(times, 0);
+
+        window.setTimeout(internalCallback, factor);
+    };
+
+    randomString(length, chars) {
+        let result = '';
+        for (let i = length; i > 0; --i) {
+            result += chars[Math.floor(Math.random() * chars.length)];
+        }
+        return result;
     }
 
     // setScoreText(number, player) {
@@ -398,19 +473,15 @@ export class MainSceneComponent extends Phaser.Scene {
         if (this.cursorKeys.left.isDown === true) {
             this.players.get(this.myPlayerName).setVelocity(-Player.SPEED, 0);
             this.players.get(this.myPlayerName).setAngle(270);
-            // this.websocketService.sendPosition(this.players.get(this.myPlayerName).x - Player.SPEED, this.players.get(this.myPlayerName).y, this.myPlayerName, this.players.get(this.myPlayerName).score, Direction.HORIZON);
         } else if (this.cursorKeys.right.isDown === true) {
             this.players.get(this.myPlayerName).setVelocity(Player.SPEED, 0);
             this.players.get(this.myPlayerName).setAngle(90);
-            // this.websocketService.sendPosition(this.players.get(this.myPlayerName).x + Player.SPEED, this.players.get(this.myPlayerName).y, this.myPlayerName, this.players.get(this.myPlayerName).score, Direction.HORIZON);
         } else if (this.cursorKeys.up.isDown === true) {
             this.players.get(this.myPlayerName).setVelocity(0, -Player.SPEED);
             this.players.get(this.myPlayerName).setAngle(0);
-            // this.websocketService.sendPosition(this.players.get(this.myPlayerName).x, this.players.get(this.myPlayerName).y - Player.SPEED, this.myPlayerName, this.players.get(this.myPlayerName).score, Direction.VERTICAL);
         } else if (this.cursorKeys.down.isDown === true) {
             this.players.get(this.myPlayerName).setVelocity(0, Player.SPEED);
             this.players.get(this.myPlayerName).setAngle(180);
-            // this.websocketService.sendPosition(this.players.get(this.myPlayerName).x, this.players.get(this.myPlayerName).y + Player.SPEED, this.myPlayerName, this.players.get(this.myPlayerName).score, Direction.VERTICAL);
         }
         // else {
         //     this.players.get(this.myPlayerName).setVelocity(0, 0);
@@ -461,6 +532,9 @@ export class MainSceneComponent extends Phaser.Scene {
             this.subscription9.unsubscribe();
             this.subscription10.unsubscribe();
             this.websocketService.disconnect();
+            // for (let i = 0; i < this.simulationConnection.length; i++) {
+            //     this.simulationConnection[i].disconnect();
+            // }
         }
         if (this.game != null) {
             this.game.destroy(true);

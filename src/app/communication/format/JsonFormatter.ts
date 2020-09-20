@@ -1,6 +1,6 @@
 import {IFormatter} from "./IFormatter";
 
-export class JsonFormatter implements IFormatter{
+export class JsonFormatter implements IFormatter {
     decodeCoin(data) {
         return JSON.parse(data.body);
     }
@@ -15,6 +15,10 @@ export class JsonFormatter implements IFormatter{
 
     encode(data) {
         return data;
+    }
+
+    prepareNicknamePayload(nickname: string) {
+        return {'nickname': nickname}
     }
 }
 

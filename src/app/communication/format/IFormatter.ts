@@ -3,4 +3,5 @@ export interface IFormatter {
     decodeCoin(data);
     decodeMonster(data);
     encode(data);
+    prepareNicknamePayload(nickname: string);
 }
