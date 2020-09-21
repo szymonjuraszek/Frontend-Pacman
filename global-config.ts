@@ -1,14 +1,8 @@
 'use strict';
-// Not modify
-export enum Format {
-    CUSTOM_BINARY,
-    PROTOBUF,
-    JSON
-}
 
 import {IdentitySerializer, JsonSerializer} from 'rsocket-core';
 
-// Define data which will be saved into response file (not modify)
+// Defined data which will be saved into response file (not modify)
 export const CSV_RESPONSE_HEADERS = ['id', 'response_time_in_millis', 'response_timestamp', 'version_response'];
 
 //-----------------------   Global options for application which you can modify    -------------------------
@@ -21,9 +15,6 @@ export const HTTP_URL_MAIN = 'https://localhost:8080';
 export const WEBSOCKET_URL_MAIN = 'ws://localhost:8080/socket';
 // rsocket(websocket) URL for connection
 export const RSOCKET_URL_MAIN = 'ws://localhost:8080/rsocket';
-
-// 2) This option must be set on 'true' for rsocket
-export const DOWNLOAD_MEASUREMENT_RSOCKET = false
 
 // 3) Serializer for RSocket
 export const SERIALIZER_DATA = JsonSerializer

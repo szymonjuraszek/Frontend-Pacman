@@ -2,7 +2,7 @@ import {Injectable} from '@angular/core';
 import {HttpService} from "../http/http.service";
 import {MeasurementService} from "../cache/measurement.service";
 import {saveAs} from 'file-saver';
-import {CSV_RESPONSE_HEADERS, DOWNLOAD_MEASUREMENT_RSOCKET} from "../../../global-config";
+import {CSV_RESPONSE_HEADERS} from "../../../global-config";
 
 @Injectable({
     providedIn: 'root'
@@ -21,7 +21,7 @@ export class DownloadService {
     }
 
     downloadRequestMeasurements() {
-        if(DOWNLOAD_MEASUREMENT_RSOCKET) {
+        if(this._rsocketObject) {
             this._rsocketObject
                 .requestResponse({
                     metadata: String.fromCharCode('/report/measurement'.length) + '/report/measurement',

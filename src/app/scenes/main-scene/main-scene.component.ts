@@ -21,13 +21,14 @@ import {RSocketSimulationConnection} from "../../communication/simulation/rsocke
 import *  as  data from '../../../../rsocketData.json';
 import {WebsocketSimulationConnection} from "../../communication/simulation/websocket/WebsocketSimulationConnection";
 import {AdditionalObject} from "../../communication/simulation/data/AdditionalObject";
+import {environment} from "../../../environments/environment";
 
 @Component({
     selector: 'app-main-scene',
     providers: [
         {
             provide: Communicator,
-            useClass: Http2Service
+            useClass: environment.serviceToCommunication
         }
     ],
     templateUrl: './main-scene.component.html',

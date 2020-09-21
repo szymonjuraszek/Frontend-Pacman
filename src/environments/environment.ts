@@ -1,9 +1,13 @@
 // This file can be replaced during build by using the `fileReplacements` array.
-// `ng build --prod` replaces `environment.ts` with `environment.prod.ts`.
+// `ng build --prod` replaces `environment.ts` with `environment.websocket.ts`.
 // The list of file replacements can be found in `angular.json`.
 
+import {WebsocketService} from "../app/communication/websocket/websocket.service";
+
 export const environment = {
-  production: false
+  production: false,
+  serviceToCommunication: WebsocketService,
+  download_measurement_rsocket: false
 };
 
 /*

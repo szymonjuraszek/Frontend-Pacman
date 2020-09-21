@@ -4,7 +4,6 @@ import {MeasurementService} from "../../cache/measurement.service";
 import {Communicator} from "../Communicator";
 import {SocketClientState} from "../SocketClientState";
 import {RequestCacheService} from "../../cache/request-cache.service";
-import {WEBSOCKET_URL_MAIN} from "../../../../global-config";
 import {Client, Stomp} from '@stomp/stompjs';
 import * as SockJS from 'sockjs-client';
 
@@ -14,6 +13,9 @@ import {IFormatter} from "../format/IFormatter";
 import {JsonFormatter} from "../format/JsonFormatter";
 import {ProtobufFormatter} from "../format/ProtobufFormatter";
 import {CustomBinaryFormatter} from "../format/CustomBinaryFormatter";
+// import {environment} from "../../../environments/environment.websocket";
+import {environment} from '../../../environments/environment';
+import {WEBSOCKET_URL_MAIN} from "../../../../global-config";
 
 @Injectable()
 export class WebsocketService extends Communicator {
@@ -27,7 +29,7 @@ export class WebsocketService extends Communicator {
         private requestCache: RequestCacheService,
     ) {
         super(WEBSOCKET_URL_MAIN);
-        this.setFormatter(new ProtobufFormatter());
+        this.setFormatter(new JsonFormatter());
     }
 
     initializeConnection() {

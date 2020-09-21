@@ -29,31 +29,27 @@
             "scripts": ["node_modules/phaser/dist/phaser.min.js"]
           },
           "configurations": {
-            "production": {
+            "http2": {
               "fileReplacements": [
                 {
                   "replace": "src/environments/environment.ts",
-                  "with": "src/environments/environment.prod.ts"
+                  "with": "src/environments/environment.http2.ts"
                 }
-              ],
-              "optimization": true,
-              "outputHashing": "all",
-              "sourceMap": false,
-              "extractCss": true,
-              "namedChunks": false,
-              "extractLicenses": true,
-              "vendorChunk": false,
-              "buildOptimizer": true,
-              "budgets": [
+              ]
+            },
+            "rsocket": {
+              "fileReplacements": [
                 {
-                  "type": "initial",
-                  "maximumWarning": "2mb",
-                  "maximumError": "5mb"
-                },
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.rsocket.ts"
+                }
+              ]
+            },
+            "websocket": {
+              "fileReplacements": [
                 {
-                  "type": "anyComponentStyle",
-                  "maximumWarning": "6kb",
-                  "maximumError": "10kb"
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.websocket.ts"
                 }
               ]
             }
@@ -67,6 +63,15 @@
           "configurations": {
             "production": {
               "browserTarget": "untitled:build:production"
+            },
+            "websocket": {
+              "browserTarget": "untitled:build:websocket"
+            },
+            "http2": {
+              "browserTarget": "untitled:build:http2"
+            },
+            "rsocket": {
+              "browserTarget": "untitled:build:rsocket"
             }
           }
         },

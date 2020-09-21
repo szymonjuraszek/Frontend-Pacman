@@ -4,7 +4,13 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve --no-live-reload",
+    "start-rsocket": "ng serve --no-live-reload --configuration rsocket",
+    "start-websocket": "ng serve --no-live-reload --configuration websocket",
+    "start-http2": "ng serve --no-live-reload --configuration http2",
     "build": "ng build",
+    "build-rsocket": "ng build --configuration rsocket",
+    "build-websocket": "ng build --configuration websocket",
+    "build-http2": "ng build --configuration http2",
     "test": "ng test",
     "lint": "ng lint",
     "e2e": "ng e2e"
