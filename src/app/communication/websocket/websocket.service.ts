@@ -18,7 +18,7 @@ import {environment} from '../../../environments/environment';
 import {WEBSOCKET_URL_MAIN} from "../../../../global-config";
 
 @Injectable()
-export class WebsocketService extends Communicator {
+export class WebsocketService extends Communicator{
     // 'https://backend-pacman-app.herokuapp.com/socket'
     // 'http://localhost:8080/socket'
     private stompClient: Client;
