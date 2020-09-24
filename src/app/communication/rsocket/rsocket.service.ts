@@ -8,7 +8,6 @@ import {SocketClientState} from "../SocketClientState";
 import {RequestCacheService} from "../../cache/request-cache.service";
 import {Player} from "../../model/Player";
 import {DATA_MIME_TYPE, RSOCKET_URL_MAIN, SERIALIZER_DATA, SERIALIZER_METADATA} from "../../../../global-config";
-import {DownloadService} from "../../downloader/download.service";
 import {IFormatter} from "../format/IFormatter";
 import {CustomBinaryFormatter} from "../format/CustomBinaryFormatter";
 import {ProtobufFormatter} from "../format/ProtobufFormatter";
@@ -33,8 +32,7 @@ export class RsocketService extends Communicator {
 
     constructor(
         private measurementService: MeasurementService,
-        private requestCache: RequestCacheService,
-        private downloaderService: DownloadService
+        private requestCache: RequestCacheService
     ) {
         super(RSOCKET_URL_MAIN);
         // right now only support for json
@@ -71,7 +69,6 @@ export class RsocketService extends Communicator {
             onComplete: socket => {
 
                 this.rsocketObject = socket;
-                this.downloaderService.rsocketObject = socket;
 
                 socket.requestStream({
                     metadata: String.fromCharCode('monstersUpdate'.length) + 'monstersUpdate',
@@ -82,7 +79,7 @@ export class RsocketService extends Communicator {
                         this.state.next(SocketClientState.ERROR);
                     },
                     onNext: payload => {
-                        this.measurementService.addMeasurementResponse(payload.data.id, new Date().getTime() - Number(payload.data.timestamp), payload.data.timestamp,0);
+                        this.measurementService.addMeasurementResponse(payload.data.id, 0, 0,0,0);
                         this.monsterToUpdate.next(payload.data);
                     },
                     onSubscribe: subscription => {
@@ -140,10 +137,11 @@ export class RsocketService extends Communicator {
                     onNext: playerToUpdate => {
                         const parsedPlayer: Player = playerToUpdate.data
 
-                        const responseTimeInMillis = new Date().getTime() - Number(playerToUpdate.data.timestamp);
+                        const responseTimeInMillis = new Date().getTime() - Number(playerToUpdate.data.requestTimestamp);
                         // console.error("Odpowiedz serwera " + responseTimeInMillis + " milliseconds")
 
-                        this.measurementService.addMeasurementResponse(parsedPlayer.nickname, responseTimeInMillis, playerToUpdate.data.timestamp, parsedPlayer.version);
+                        this.measurementService.addMeasurementResponse(parsedPlayer.nickname, responseTimeInMillis,
+                            playerToUpdate.data.requestTimestamp, parsedPlayer.version, playerToUpdate.data.contentLength);
 
                         if (parsedPlayer.nickname === this.myNickname) {
                             const request = this.requestCache.getRequest(parsedPlayer.version);
@@ -172,15 +170,15 @@ export class RsocketService extends Communicator {
                         this.state.next(SocketClientState.ERROR);
                     },
                     onNext: playerToUpdate => {
-                        console.error('Specific endpoint for player')
+                        // console.error('Specific endpoint for player')
                         const parsedPlayer: Player = playerToUpdate.data;
 
-                        const responseTimeInMillis = new Date().getTime() - Number(playerToUpdate.data.timestamp);
+                        const responseTimeInMillis = new Date().getTime() - Number(playerToUpdate.data.requestTimestamp);
 
-                        this.measurementService.addMeasurementResponse(parsedPlayer.nickname, responseTimeInMillis, playerToUpdate.data.timestamp, parsedPlayer.version);
+                        this.measurementService.addMeasurementResponse(parsedPlayer.nickname, responseTimeInMillis,
+                            playerToUpdate.data.requestTimestamp, parsedPlayer.version, playerToUpdate.data.contentLength);
 
                         const request = this.requestCache.getCorrectedPosition(parsedPlayer.version);
-                        console.error(request);
 
                         if (request !== null) {
                             parsedPlayer.positionX = request.x;
@@ -260,6 +258,8 @@ export class RsocketService extends Communicator {
 
     sendPosition(dataToSend) {
         const encodedData = this.formatter.encode(dataToSend);
+        encodedData["contentLength"] = JSON.stringify(encodedData).length;
+
         this.rsocketObject.fireAndForget({
             data: encodedData,
             metadata: String.fromCharCode('sendPosition'.length) + 'sendPosition'

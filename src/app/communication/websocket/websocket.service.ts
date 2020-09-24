@@ -67,10 +67,11 @@ export class WebsocketService extends Communicator{
             this.stompClient.subscribe('/pacman/update/player', (playerToUpdate) => {
                 const parsedPlayer = this.formatter.decodePlayer(playerToUpdate);
 
-                const responseTimeInMillis = new Date().getTime() - Number(playerToUpdate.headers.timestamp);
+                const responseTimeInMillis = new Date().getTime() - Number(playerToUpdate.headers.requestTimestamp);
                 // console.error("Odpowiedz serwera " + responseTimeInMillis + " milliseconds")
 
-                this.measurementService.addMeasurementResponse(parsedPlayer.nickname, responseTimeInMillis, playerToUpdate.headers.timestamp, parsedPlayer.version);
+                this.measurementService.addMeasurementResponse(parsedPlayer.nickname, responseTimeInMillis,
+                    playerToUpdate.headers.requestTimestamp, parsedPlayer.version, playerToUpdate.headers.contentLength);
 
                 if (parsedPlayer.nickname === this.myNickname) {
                     const request = this.requestCache.getRequest(parsedPlayer.version);
@@ -85,7 +86,7 @@ export class WebsocketService extends Communicator{
 
             this.stompClient.subscribe('/pacman/update/monster', (monster) => {
                 const monsterParsed = this.formatter.decodeMonster(monster);
-                this.measurementService.addMeasurementResponse(monsterParsed.id, new Date().getTime() - Number(monster.headers.timestamp), monster.headers.timestamp,0);
+                this.measurementService.addMeasurementResponse(monsterParsed.id, 0,0,0,0);
                 this.monsterToUpdate.next(monsterParsed);
             });
 
@@ -104,9 +105,10 @@ export class WebsocketService extends Communicator{
             this.stompClient.subscribe('/user/queue/player', (playerToUpdate) => {
                 const parsedPlayer = this.formatter.decodePlayer(playerToUpdate);
 
-                const responseTimeInMillis = new Date().getTime() - Number(playerToUpdate.headers.timestamp);
+                const responseTimeInMillis = new Date().getTime() - Number(playerToUpdate.headers.requestTimestamp);
 
-                this.measurementService.addMeasurementResponse(parsedPlayer.nickname, responseTimeInMillis, playerToUpdate.headers.timestamp, parsedPlayer.version);
+                this.measurementService.addMeasurementResponse(parsedPlayer.nickname, responseTimeInMillis,
+                    playerToUpdate.headers.requestTimestamp, parsedPlayer.version, playerToUpdate.headers.contentLength);
 
                 const request = this.requestCache.getCorrectedPosition(parsedPlayer.version);
 

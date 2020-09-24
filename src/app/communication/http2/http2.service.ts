@@ -48,7 +48,7 @@ export class Http2Service extends Communicator {
 
                     this.eventSource.addEventListener('/pacman/update/monster', (monsterPositionEvent: MessageEvent) => {
                         let monsterParsed = JSON.parse(monsterPositionEvent.data);
-                        this.saveResponseTime(monsterParsed.id, Number.parseInt(monsterParsed.timestamp), 0);
+                        this.saveResponseTime(monsterParsed.id, 0, 0, 0);
                         this.monsterToUpdate.next(monsterParsed);
                     });
                     this.eventSource.addEventListener('/pacman/get/coin', (coinPositionEvent: MessageEvent) => {
@@ -69,7 +69,7 @@ export class Http2Service extends Communicator {
                     });
                     this.eventSource.addEventListener('/pacman/update/player', (playerToUpdateEvent: MessageEvent) => {
                         const playersToUpdateClass = JSON.parse(playerToUpdateEvent.data);
-                        this.saveResponseTime(playersToUpdateClass.nickname, playersToUpdateClass.timestamp, playersToUpdateClass.version);
+                        this.saveResponseTime(playersToUpdateClass.nickname, playersToUpdateClass.requestTimestamp, playersToUpdateClass.version, playersToUpdateClass.contentLength);
                         this.playerToUpdate.next(playersToUpdateClass);
                     });
 
@@ -102,7 +102,7 @@ export class Http2Service extends Communicator {
             },
             observe: 'response'
         }).subscribe((player: HttpResponse<Player>) => {
-            this.saveResponseTime(player.body.nickname, Number(player.headers.get('timestamp')), player.body.version);
+            this.saveResponseTime(player.body.nickname, Number(player.headers.get('requestTimestamp')), player.body.version, Number(player.headers.get('contentLength')));
 
             if (player.status === 202) {
                 const request = this.requestCache.getCorrectedPosition(player.body.version);
@@ -125,9 +125,9 @@ export class Http2Service extends Communicator {
         });
     }
 
-    saveResponseTime(id: string, timestampFromServer: number, version: number) {
+    saveResponseTime(id: string, timestampFromServer: number, version: number, size: number) {
         const responseTimeInMillis = new Date().getTime() - timestampFromServer;
         console.error("Odpowiedz serwera " + responseTimeInMillis + " milliseconds");
-        this.measurementService.addMeasurementResponse(id, responseTimeInMillis, timestampFromServer, version);
+        this.measurementService.addMeasurementResponse(id, responseTimeInMillis, timestampFromServer, version, size);
     }
 }

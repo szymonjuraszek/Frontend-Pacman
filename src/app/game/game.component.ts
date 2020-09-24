@@ -5,7 +5,7 @@ import {MainSceneComponent} from '../scenes/main-scene/main-scene.component';
 @Component({
   selector: 'app-game',
   templateUrl: './game.component.html',
-  styleUrls: ['./game.component.css']
+  styleUrls: ['./game.component.css'],
 })
 export class GameComponent implements OnInit {
   phaserGame: Phaser.Game;
@@ -18,7 +18,7 @@ export class GameComponent implements OnInit {
       width: 1600,
       scale: {
         mode: Phaser.Scale.FIT,
-        autoCenter: Phaser.Scale.CENTER_BOTH
+        autoCenter: Phaser.Scale.CENTER_HORIZONTALLY
       },
       scene: [],
       parent: 'gameContainer',

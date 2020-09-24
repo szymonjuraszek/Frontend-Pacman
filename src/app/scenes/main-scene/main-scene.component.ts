@@ -1,4 +1,4 @@
-import {Component, ElementRef, Injectable} from '@angular/core';
+import {Component, ElementRef, Injectable, Renderer2, ViewChild} from '@angular/core';
 import Phaser from 'phaser';
 import {WebsocketService} from '../../communication/websocket/websocket.service';
 import {Router} from "@angular/router";
@@ -98,7 +98,7 @@ export class MainSceneComponent  extends Phaser.Scene{
     constructor(
         private websocketService: Communicator,
         private router: Router,
-        private elementRef: ElementRef,
+        private renderer: Renderer2,
         private downloadService: DownloadService,
         private requestCache: RequestCacheService
     ) {
@@ -116,9 +116,9 @@ export class MainSceneComponent  extends Phaser.Scene{
         this.websocketService.initializeConnection();
         // const tab = (data as any).default;
         //
-        // for (let i = 0; i < this.arrayWithAdditionalData.length; i++) {
-        //     this.arrayWithAdditionalData[i] = new AdditionalObject(5555, this.additionalData);
-        // }
+        for (let i = 0; i < this.arrayWithAdditionalData.length; i++) {
+            this.arrayWithAdditionalData[i] = new AdditionalObject(5555, this.additionalData);
+        }
         // setTimeout(() => {
         //         for (let i = 0; i < tab.length; i++) {
         //             this.simulationConnection[i] = new WebsocketSimulationConnection(tab[i].nickname);
@@ -217,7 +217,7 @@ export class MainSceneComponent  extends Phaser.Scene{
         this.downloadButton = this.add.image(this.game.canvas.width - 208, 48, 'download-button');
         this.downloadButton.setInteractive();
         this.downloadButton.on('pointerup', () => {
-            this.downloadService.downloadRequestMeasurements();
+            // this.downloadService.downloadRequestMeasurements();
             this.downloadService.downloadResponseMeasurements();
         });
 
@@ -371,16 +371,15 @@ export class MainSceneComponent  extends Phaser.Scene{
         this.lastY = player.y;
         this.lastAngle = player.angle;
 
-        // const dataProvider = interval(1000);
-        // const subscriptionDataProvider = dataProvider.subscribe(()=> {
-        //     for(let i =0;i<10;i++) {
-        //         this.arrayWithAdditionalData.push(new AdditionalObject(5555,this.additionalData));
-        //     }
-        //     if(this.arrayWithAdditionalData.length > 400) {
-        //         subscriptionDataProvider.unsubscribe();
-        //         this.subscription7.unsubscribe();
-        //     }
-        // });
+        const dataProvider = interval(1000);
+        const subscriptionDataProvider = dataProvider.subscribe(()=> {
+            for(let i =0;i<10;i++) {
+                this.arrayWithAdditionalData.push(new AdditionalObject(5555,this.additionalData));
+            }
+            if(this.arrayWithAdditionalData.length > 300) {
+                subscriptionDataProvider.unsubscribe();
+            }
+        });
 
         this.positionSender = interval(20);
         this.positionSenderSubscription = this.positionSender.subscribe(() => {
@@ -402,8 +401,8 @@ export class MainSceneComponent  extends Phaser.Scene{
                     "score": player.score,
                     "stepDirection": this.getDirection(),
                     "version": this.counterRequest,
-                    "requestTimestamp": new Date().getTime()
-                    // "additionalData": this.arrayWithAdditionalData
+                    "requestTimestamp": new Date().getTime(),
+                    "additionalData": this.arrayWithAdditionalData
                 });
             }
         });
@@ -538,14 +537,14 @@ export class MainSceneComponent  extends Phaser.Scene{
             //     this.simulationConnection[i].disconnect();
             // }
         }
-        if (this.game != null) {
+        if (this.game) {
             this.game.destroy(true);
             this.game.scene.remove('main');
         }
-        if (document.getElementsByTagName('canvas').item(0) != null) {
+        if (document.getElementsByTagName('canvas')) {
+            console.error(this.renderer);
             document.getElementsByTagName('canvas').item(0).remove();
         }
-        this.elementRef.nativeElement.remove();
     }
 
     createAnimationsBySpriteKey(figureKey: string, animKey: string) {

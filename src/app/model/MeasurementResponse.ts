@@ -1,14 +1,16 @@
 export class MeasurementResponse {
     private _id: string;
     private _response_time_in_millis: number;
-    private _response_timestamp: number;
+    private _request_timestamp: number;
     private _version_response: number;
+    private _size: number;
 
-    constructor(id: string, response_time_in_millis: number, response_timestamp: number, version_response: number) {
+    constructor(id: string, response_time_in_millis: number, request_timestamp: number, version_response: number, size: number) {
         this._id = id;
         this._response_time_in_millis = response_time_in_millis;
-        this._response_timestamp = response_timestamp;
+        this._request_timestamp = request_timestamp;
         this._version_response = version_response;
+        this._size = size;
     }
 
     get response_time_in_millis(): number {
@@ -19,12 +21,12 @@ export class MeasurementResponse {
         this._response_time_in_millis = value;
     }
 
-    get response_timestamp(): number {
-        return this._response_timestamp;
+    get request_timestamp(): number {
+        return this._request_timestamp;
     }
 
-    set response_timestamp(value: number) {
-        this._response_timestamp = value;
+    set request_timestamp(value: number) {
+        this._request_timestamp = value;
     }
 
     get version_response(): number {
@@ -42,5 +44,13 @@ export class MeasurementResponse {
 
     set id(value: string) {
         this._id = value;
+    }
+
+    get size(): number {
+        return this._size;
+    }
+
+    set size(value: number) {
+        this._size = value;
     }
 }

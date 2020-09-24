@@ -6,7 +6,6 @@ import { GameComponent } from './game/game.component';
 import { MainSceneComponent } from './scenes/main-scene/main-scene.component';
 import {WebsocketService} from './communication/websocket/websocket.service';
 import {HttpClientModule} from '@angular/common/http';
-import {HttpService} from './http/http.service';
 import {AppRoutingModule} from "./app-routing.module";
 import {OAuthModule} from "angular-oauth2-oidc";
 import { HomeComponent } from './home/home.component';
@@ -26,7 +25,7 @@ import {FormsModule} from "@angular/forms";
     OAuthModule.forRoot(),
     FormsModule
   ],
-  providers: [WebsocketService, HttpService],
+  providers: [WebsocketService],
   bootstrap: [AppComponent]
 })
 export class AppModule { }

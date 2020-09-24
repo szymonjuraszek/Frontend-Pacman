@@ -8,11 +8,11 @@ export class MeasurementService {
 
     private readonly measurements = new Array<MeasurementResponse>();
 
-    addMeasurementResponse(id, responseTimeInMillis, responseTimestamp, version) {
+    addMeasurementResponse(id, responseTimeInMillis, requestTimestamp, version, size) {
         // if (this.measurements.length > 1999) {
         //     this.measurements.splice(0, 1);
         // }
-        this.measurements.push(new MeasurementResponse(id, responseTimeInMillis, responseTimestamp, version))
+        this.measurements.push(new MeasurementResponse(id, responseTimeInMillis, requestTimestamp, version, size))
     }
 
     getResponseMeasurements(): Array<MeasurementResponse> {

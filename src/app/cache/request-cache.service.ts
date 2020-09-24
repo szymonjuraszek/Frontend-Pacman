@@ -45,7 +45,7 @@ export class RequestCacheService {
             const request = this.requests.front;
             console.error(request);
             if(request.id > id) {
-                return;
+                return null;
             }
         }
 
