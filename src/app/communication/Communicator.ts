@@ -1,4 +1,3 @@
-import {Direction} from "./Direction";
 import {BehaviorSubject, Subject} from "rxjs";
 import {SocketClientState} from "./SocketClientState";
 import {Player} from "../model/Player";

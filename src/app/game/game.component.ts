@@ -1,6 +1,6 @@
 import {Component, OnInit} from '@angular/core';
 import Phaser from 'phaser';
-import {MainSceneComponent} from '../scenes/main-scene/main-scene.component';
+import {MainSceneComponent} from '../scene/main-scene.component';
 
 @Component({
   selector: 'app-game',

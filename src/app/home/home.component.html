@@ -8,10 +8,6 @@
     <button (click)="startGame(nickname)" [disabled]="!nickname || nickname=='NO_ONE' || (nickname.length>10 || nickname.length<2)">Start</button>
 
     <br><br><br><br>
-    <h4 *ngIf="answer">You can't start game because other player has the same nickname: {{answer}}</h4>
-
-<!--    <div id="description">-->
-<!--        <h3>Description</h3>-->
-<!--    </div>-->
-
+    <h4 *ngIf="answer">You can't start game because other player has the same nickname: '{{answer}}'</h4>
+    <h4 *ngIf="message">{{message}}</h4>
 </div>

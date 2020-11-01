@@ -1,15 +1,13 @@
 import {Injectable} from '@angular/core';
 import {Communicator} from "../Communicator";
 import {MeasurementService} from "../../cache/measurement.service";
-import {Direction} from "../Direction";
-import {BehaviorSubject, interval} from "rxjs";
+import {BehaviorSubject} from "rxjs";
 import {SocketClientState} from "../SocketClientState";
-import {HttpClient, HttpHeaders, HttpParams, HttpResponse} from "@angular/common/http";
+import {HttpClient, HttpHeaders, HttpResponse} from "@angular/common/http";
 import {Coin} from "../../model/Coin";
 import {Player} from "../../model/Player";
 import {RequestCacheService} from "../../cache/request-cache.service";
 import {HTTP_URL_MAIN} from "../../../../global-config";
-import {Monster} from "../../model/Monster";
 
 @Injectable({
     providedIn: 'root'
@@ -24,9 +22,6 @@ export class Http2Service extends Communicator {
 
     initializeConnection() {
         this.state = new BehaviorSubject<SocketClientState>(SocketClientState.CONNECTED);
-        // setTimeout(() => {
-        //     this.updatePlayersMap();
-        // },3000);
     }
 
     disconnect() {
@@ -48,7 +43,8 @@ export class Http2Service extends Communicator {
 
                     this.eventSource.addEventListener('/pacman/update/monster', (monsterPositionEvent: MessageEvent) => {
                         let monsterParsed = JSON.parse(monsterPositionEvent.data);
-                        this.saveResponseTime(monsterParsed.id, 0, 0, 0);
+                        const responseTimeInMillis = new Date().getTime() - monsterParsed.requestTimestamp;
+                        this.measurementService.addMonsterMeasurementWithTime(monsterParsed.id, monsterParsed.requestTimestamp, responseTimeInMillis);
                         this.monsterToUpdate.next(monsterParsed);
                     });
                     this.eventSource.addEventListener('/pacman/get/coin', (coinPositionEvent: MessageEvent) => {
@@ -68,9 +64,15 @@ export class Http2Service extends Communicator {
                         this.playersToAdd.next(JSON.parse(playerToAddEvent.data));
                     });
                     this.eventSource.addEventListener('/pacman/update/player', (playerToUpdateEvent: MessageEvent) => {
-                        const playersToUpdateClass = JSON.parse(playerToUpdateEvent.data);
-                        this.saveResponseTime(playersToUpdateClass.nickname, playersToUpdateClass.requestTimestamp, playersToUpdateClass.version, playersToUpdateClass.contentLength);
-                        this.playerToUpdate.next(playersToUpdateClass);
+                        const playersWithMeasurementInfo = JSON.parse(playerToUpdateEvent.data)
+                        if (playersWithMeasurementInfo.player.nickname.match('first*') || playersWithMeasurementInfo.player.nickname === this.myNickname) {
+                            this.saveResponseTime(playersWithMeasurementInfo.player.nickname,
+                                playersWithMeasurementInfo.requestTimestamp,
+                                playersWithMeasurementInfo.player.version,
+                                playersWithMeasurementInfo.contentLength);
+                        }
+
+                        this.playerToUpdate.next(playersWithMeasurementInfo.player);
                     });
 
                     this.http.get(this.serverUrl + "/coins").subscribe((coinsPosition: Array<Coin>) => {
@@ -95,6 +97,7 @@ export class Http2Service extends Communicator {
     }
 
     sendPosition(data) {
+        console.error(data)
         this.http.put(this.serverUrl + "/player", JSON.stringify(data), {
             headers: {
                 'Content-Type': 'application/json',
@@ -102,7 +105,11 @@ export class Http2Service extends Communicator {
             },
             observe: 'response'
         }).subscribe((player: HttpResponse<Player>) => {
-            this.saveResponseTime(player.body.nickname, Number(player.headers.get('requestTimestamp')), player.body.version, Number(player.headers.get('contentLength')));
+            if (player.body.nickname.match('first*') || player.body.nickname === this.myNickname) {
+                this.saveResponseTime(player.body.nickname,
+                    Number(player.headers.get('requestTimestamp')),
+                    player.body.version, Number(player.headers.get('content-length')));
+            }
 
             if (player.status === 202) {
                 const request = this.requestCache.getCorrectedPosition(player.body.version);
@@ -125,9 +132,11 @@ export class Http2Service extends Communicator {
         });
     }
 
-    saveResponseTime(id: string, timestampFromServer: number, version: number, size: number) {
+    saveResponseTime(id: string, timestampFromServer: number, version: number, size: number, ) {
         const responseTimeInMillis = new Date().getTime() - timestampFromServer;
-        console.error("Odpowiedz serwera " + responseTimeInMillis + " milliseconds");
-        this.measurementService.addMeasurementResponse(id, responseTimeInMillis, timestampFromServer, version, size);
+        // console.error("Odpowiedz serwera " + responseTimeInMillis + " milliseconds");
+        this.measurementService.addMeasurementResponse(id, responseTimeInMillis,
+            Math.ceil((timestampFromServer - this.requestCache.timeForStartCommunication) / 1000),
+            version, size, timestampFromServer);
     }
 }

@@ -1,6 +1,6 @@
 import {RouterModule, Routes} from "@angular/router";
 import {NgModule} from "@angular/core";
-import {MainSceneComponent} from "./scenes/main-scene/main-scene.component";
+import {MainSceneComponent} from "./scene/main-scene.component";
 import {HomeComponent} from "./home/home.component";
 
 const routes: Routes = [

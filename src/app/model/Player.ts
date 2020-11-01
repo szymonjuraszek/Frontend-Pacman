@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import {MainSceneComponent} from "../scenes/main-scene/main-scene.component";
+import {MainSceneComponent} from "../scene/main-scene.component";
 
 export class Player extends Phaser.Physics.Arcade.Sprite {
     public nickname: string;
@@ -9,7 +9,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     private _version: number;
     public static SPEED = 200;
 
-    constructor(scene: MainSceneComponent, x: number, y: number, texture: string, score: number) {
+    constructor(scene: MainSceneComponent, x: number, y: number, texture: string, score: number, version: number) {
         super(scene, x, y, texture);
 
         // Dodanie gracza do sceny (zeby w ogole byl widoczny)
@@ -24,6 +24,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         // scene.anims.play('myUp');
 
         this._score = score;
+        this._version = version;
     }
 
     get score(): number {

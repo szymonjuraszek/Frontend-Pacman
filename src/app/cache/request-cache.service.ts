@@ -11,6 +11,7 @@ export class RequestCacheService {
 
     private requests: Queue<Request> = new Queue<Request>();
     private _lastCorrectRequest: Request;
+    private _timeForStartCommunication: number;
     private static _nickname: string;
 
     addRequest(id, x, y) {
@@ -69,5 +70,14 @@ export class RequestCacheService {
 
     static set nickname(value: string) {
         this._nickname = value;
+    }
+
+
+    get timeForStartCommunication() {
+        return this._timeForStartCommunication;
+    }
+
+    set timeForStartCommunication(value) {
+        this._timeForStartCommunication = value;
     }
 }

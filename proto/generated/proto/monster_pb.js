@@ -69,8 +69,7 @@ proto.MonsterProto.toObject = function(includeInstance, msg) {
     id: jspb.Message.getFieldWithDefault(msg, 1, 0),
     positionX: jspb.Message.getFieldWithDefault(msg, 2, 0),
     positionY: jspb.Message.getFieldWithDefault(msg, 3, 0),
-    previousDirection: jspb.Message.getFieldWithDefault(msg, 4, ""),
-    timestamp: jspb.Message.getFieldWithDefault(msg, 5, 0)
+    previousDirection: jspb.Message.getFieldWithDefault(msg, 4, "")
   };
 
   if (includeInstance) {
@@ -122,10 +121,6 @@ proto.MonsterProto.deserializeBinaryFromReader = function(msg, reader) {
     case 4:
       var value = /** @type {string} */ (reader.readString());
       msg.setPreviousDirection(value);
-      break;
-    case 5:
-      var value = /** @type {number} */ (reader.readInt32());
-      msg.setTimestamp(value);
       break;
     default:
       reader.skipField();
@@ -181,13 +176,6 @@ proto.MonsterProto.serializeBinaryToWriter = function(message, writer) {
   if (f.length > 0) {
     writer.writeString(
       4,
-      f
-    );
-  }
-  f = message.getTimestamp();
-  if (f !== 0) {
-    writer.writeInt32(
-      5,
       f
     );
   }
@@ -263,24 +251,6 @@ proto.MonsterProto.prototype.getPreviousDirection = function() {
  */
 proto.MonsterProto.prototype.setPreviousDirection = function(value) {
   return jspb.Message.setProto3StringField(this, 4, value);
-};
-
-
-/**
- * optional int32 timestamp = 5;
- * @return {number}
- */
-proto.MonsterProto.prototype.getTimestamp = function() {
-  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 5, 0));
-};
-
-
-/**
- * @param {number} value
- * @return {!proto.MonsterProto} returns this
- */
-proto.MonsterProto.prototype.setTimestamp = function(value) {
-  return jspb.Message.setProto3IntField(this, 5, value);
 };
 
 

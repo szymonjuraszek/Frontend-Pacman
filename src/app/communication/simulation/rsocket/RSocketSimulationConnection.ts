@@ -29,8 +29,8 @@ export class RSocketSimulationConnection {
     }
 
 
-    private client: RSocketClient;
-    private rsocketObject: RSocketWebSocketClient;
+    private client: RSocketClient<any, string | Buffer | Uint8Array>;
+    private rsocketObject: any;
 
     private coinRefreshSub: any;
     private coinGetSub: any;

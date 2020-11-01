@@ -7,4 +7,11 @@ message PlayerProto {
     int32 score = 4;
     string step_direction = 5;
     int32 version = 6;
+    message AdditionalData {
+        string text = 1;
+        int32 number1 = 2;
+        int32 number2 = 3;
+        int32 number3 = 4;
+    }
+    repeated AdditionalData additionalData = 7;
 }

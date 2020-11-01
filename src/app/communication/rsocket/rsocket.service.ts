@@ -1,7 +1,6 @@
 import {Injectable} from '@angular/core';
 import {Communicator} from "../Communicator";
 import {MeasurementService} from "../../cache/measurement.service";
-import RSocketWebSocketClient from 'rsocket-websocket-client';
 import {RSocketClient} from 'rsocket-core';
 import {BehaviorSubject} from "rxjs";
 import {SocketClientState} from "../SocketClientState";
@@ -9,17 +8,18 @@ import {RequestCacheService} from "../../cache/request-cache.service";
 import {Player} from "../../model/Player";
 import {DATA_MIME_TYPE, RSOCKET_URL_MAIN, SERIALIZER_DATA, SERIALIZER_METADATA} from "../../../../global-config";
 import {IFormatter} from "../format/IFormatter";
-import {CustomBinaryFormatter} from "../format/CustomBinaryFormatter";
-import {ProtobufFormatter} from "../format/ProtobufFormatter";
 import {JsonFormatter} from "../format/JsonFormatter";
+import RSocketWebSocketClient from "rsocket-websocket-client";
 
 @Injectable({
     providedIn: 'root'
 })
 export class RsocketService extends Communicator {
-    private client: RSocketClient;
-    private rsocketObject: RSocketWebSocketClient;
+    // rsocket object connection
+    private client: RSocketClient<any, string | Buffer | Uint8Array>;
+    private rsocketObject: any;
 
+    // subscriptions
     private coinRefreshSub: any;
     private coinGetSub: any;
     private monstersUpdateSub: any;
@@ -28,6 +28,7 @@ export class RsocketService extends Communicator {
     private playerUpdateSub: any;
     private playerUpdateUserSub: any;
 
+    // data formatter
     private formatter: IFormatter;
 
     constructor(
@@ -35,7 +36,6 @@ export class RsocketService extends Communicator {
         private requestCache: RequestCacheService
     ) {
         super(RSOCKET_URL_MAIN);
-        // right now only support for json
         this.setFormatter(new JsonFormatter());
     }
 
@@ -59,15 +59,15 @@ export class RsocketService extends Communicator {
                 }
             },
             transport: new RSocketWebSocketClient({
-                url: this.serverUrl
+                url: this.serverUrl,
+                debug: true
             })
         });
 
         this.state = new BehaviorSubject<SocketClientState>(SocketClientState.ATTEMPTING);
 
         this.client.connect().subscribe({
-            onComplete: socket => {
-
+            onComplete: (socket) => {
                 this.rsocketObject = socket;
 
                 socket.requestStream({
@@ -78,11 +78,11 @@ export class RsocketService extends Communicator {
                         console.log(error);
                         this.state.next(SocketClientState.ERROR);
                     },
-                    onNext: payload => {
-                        this.measurementService.addMeasurementResponse(payload.data.id, 0, 0,0,0);
+                    onNext: (payload) => {
+                        this.measurementService.addMonsterMeasurement(payload.data.id, payload.data.requestTimestamp);
                         this.monsterToUpdate.next(payload.data);
                     },
-                    onSubscribe: subscription => {
+                    onSubscribe: (subscription) => {
                         console.error('========= Subskrybuje monsterUpdate ============')
                         subscription.request(2147483640);
                         this.monstersUpdateSub = subscription;
@@ -135,13 +135,15 @@ export class RsocketService extends Communicator {
                         this.state.next(SocketClientState.ERROR);
                     },
                     onNext: playerToUpdate => {
-                        const parsedPlayer: Player = playerToUpdate.data
+                        const parsedPlayer: Player = playerToUpdate.data;
 
-                        const responseTimeInMillis = new Date().getTime() - Number(playerToUpdate.data.requestTimestamp);
-                        // console.error("Odpowiedz serwera " + responseTimeInMillis + " milliseconds")
+                        if (parsedPlayer.nickname.match('local*') || parsedPlayer.nickname === this.myNickname) {
+                            const responseTimeInMillis = new Date().getTime() - playerToUpdate.data.requestTimestamp;
 
-                        this.measurementService.addMeasurementResponse(parsedPlayer.nickname, responseTimeInMillis,
-                            playerToUpdate.data.requestTimestamp, parsedPlayer.version, playerToUpdate.data.contentLength);
+                            this.measurementService.addMeasurementResponse(parsedPlayer.nickname, responseTimeInMillis,
+                                Math.ceil((playerToUpdate.data.requestTimestamp - this.requestCache.timeForStartCommunication) / 1000),
+                                parsedPlayer.version, playerToUpdate.data.contentLength, playerToUpdate.data.requestTimestamp);
+                        }
 
                         if (parsedPlayer.nickname === this.myNickname) {
                             const request = this.requestCache.getRequest(parsedPlayer.version);
@@ -170,13 +172,15 @@ export class RsocketService extends Communicator {
                         this.state.next(SocketClientState.ERROR);
                     },
                     onNext: playerToUpdate => {
-                        // console.error('Specific endpoint for player')
                         const parsedPlayer: Player = playerToUpdate.data;
 
-                        const responseTimeInMillis = new Date().getTime() - Number(playerToUpdate.data.requestTimestamp);
+                        if (parsedPlayer.nickname.match('local*') || parsedPlayer.nickname === this.myNickname) {
+                            const responseTimeInMillis = new Date().getTime() - playerToUpdate.data.requestTimestamp;
 
-                        this.measurementService.addMeasurementResponse(parsedPlayer.nickname, responseTimeInMillis,
-                            playerToUpdate.data.requestTimestamp, parsedPlayer.version, playerToUpdate.data.contentLength);
+                            this.measurementService.addMeasurementResponse(parsedPlayer.nickname, responseTimeInMillis,
+                                Math.ceil((playerToUpdate.data.requestTimestamp - this.requestCache.timeForStartCommunication) / 1000),
+                                parsedPlayer.version, playerToUpdate.data.contentLength, playerToUpdate.data.requestTimestamp);
+                        }
 
                         const request = this.requestCache.getCorrectedPosition(parsedPlayer.version);
 
@@ -219,7 +223,7 @@ export class RsocketService extends Communicator {
                         console.log(error);
                         this.state.next(SocketClientState.ERROR);
                     },
-                    onNext: payload => {
+                    onNext: () => {
                         this.refreshCoin.next();
                     },
                     onSubscribe: subscription => {
@@ -235,7 +239,7 @@ export class RsocketService extends Communicator {
                 console.log(error);
                 this.state.next(SocketClientState.ERROR);
             },
-            onSubscribe: cancel => {
+            onSubscribe: () => {
             }
         });
     }
@@ -245,7 +249,7 @@ export class RsocketService extends Communicator {
             .requestResponse({
                 metadata: String.fromCharCode('joinToGame'.length) + 'joinToGame',
             }).subscribe({
-            onComplete: currentCoinPosition => {
+            onComplete: (currentCoinPosition) => {
                 this.ifJoinGame.next(currentCoinPosition.data);
             },
             onError: error => {
@@ -259,6 +263,7 @@ export class RsocketService extends Communicator {
     sendPosition(dataToSend) {
         const encodedData = this.formatter.encode(dataToSend);
         encodedData["contentLength"] = JSON.stringify(encodedData).length;
+        encodedData["requestTimestamp"] = new Date().getTime();
 
         this.rsocketObject.fireAndForget({
             data: encodedData,
