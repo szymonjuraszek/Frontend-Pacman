@@ -1,13 +1,31 @@
-<div id="background">
-    <h1>Welcome in multiplayer Pacman Game</h1>
-    <br>
-    <br>
-    <br>
-    <h2>Set nickname and click 'START'</h2>
-    <input [(ngModel)]="nickname">
-    <button (click)="startGame(nickname)" [disabled]="!nickname || nickname=='NO_ONE' || (nickname.length>10 || nickname.length<2)">Start</button>
+<div id="container">
+    <div id="settings">
+        <h3>Settings:</h3>
+        <h5>Version: {{versionName}}</h5>
+        <h5>Content Format: {{contentFormat}}</h5>
+        <h5>Sending speed: {{speed}}</h5>
+        <h5>Additional objects: {{additionalObjects}}</h5>
+        <h5>URL: {{serverUrl}}</h5>
 
-    <br><br><br><br>
-    <h4 *ngIf="answer">You can't start game because other player has the same nickname: '{{answer}}'</h4>
-    <h4 *ngIf="message">{{message}}</h4>
+        Sending speed (ms): <input [(ngModel)]="speed">
+        Additional objects per second: <input [(ngModel)]="additionalObjects">
+        <mat-radio-group aria-label="Where to connect" [(ngModel)]="serverUrl">
+            <mat-radio-button value="{{vpsServer}}">VPS</mat-radio-button>
+            <mat-radio-button value="{{localServerUrl}}">LOCAL</mat-radio-button>
+        </mat-radio-group>
+    </div>
+    <div id="background">
+        <h1>Welcome in multiplayer Pacman Game</h1>
+        <br>
+        <br>
+        <br>
+        <h2>Set nickname and click 'START'</h2>
+        <input [(ngModel)]="nickname">
+        <button (click)="startGame(nickname)" [disabled]="!nickname || nickname=='NO_ONE' || (nickname.length>10 || nickname.length<2)">Start</button>
+
+        <br><br><br><br>
+        <h4 *ngIf="answer">You can't start game because other player has the same nickname: '{{answer}}'</h4>
+        <h4 *ngIf="message">{{message}}</h4>
+    </div>
 </div>
+

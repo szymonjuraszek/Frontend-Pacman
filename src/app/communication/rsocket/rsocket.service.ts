@@ -6,8 +6,7 @@ import {BehaviorSubject} from "rxjs";
 import {SocketClientState} from "../SocketClientState";
 import {RequestCacheService} from "../../cache/request-cache.service";
 import {Player} from "../../model/Player";
-import {DATA_MIME_TYPE, RSOCKET_URL_MAIN, SERIALIZER_DATA, SERIALIZER_METADATA} from "../../../../global-config";
-import {IFormatter} from "../format/IFormatter";
+import {DATA_MIME_TYPE, SERIALIZER_DATA, SERIALIZER_METADATA} from "../../../../global-config";
 import {JsonFormatter} from "../format/JsonFormatter";
 import RSocketWebSocketClient from "rsocket-websocket-client";
 
@@ -28,14 +27,11 @@ export class RsocketService extends Communicator {
     private playerUpdateSub: any;
     private playerUpdateUserSub: any;
 
-    // data formatter
-    private formatter: IFormatter;
-
     constructor(
         private measurementService: MeasurementService,
         private requestCache: RequestCacheService
     ) {
-        super(RSOCKET_URL_MAIN);
+        super();
         this.setFormatter(new JsonFormatter());
     }
 
@@ -79,7 +75,8 @@ export class RsocketService extends Communicator {
                         this.state.next(SocketClientState.ERROR);
                     },
                     onNext: (payload) => {
-                        this.measurementService.addMonsterMeasurement(payload.data.id, payload.data.requestTimestamp);
+                        const responseTimeInMillis = new Date().getTime() - payload.data.requestTimestamp;
+                        this.measurementService.addMonsterMeasurementWithTime(payload.data.id, payload.data.requestTimestamp, responseTimeInMillis);
                         this.monsterToUpdate.next(payload.data);
                     },
                     onSubscribe: (subscription) => {
@@ -137,10 +134,9 @@ export class RsocketService extends Communicator {
                     onNext: playerToUpdate => {
                         const parsedPlayer: Player = playerToUpdate.data;
 
-                        if (parsedPlayer.nickname.match('local*') || parsedPlayer.nickname === this.myNickname) {
-                            const responseTimeInMillis = new Date().getTime() - playerToUpdate.data.requestTimestamp;
-
-                            this.measurementService.addMeasurementResponse(parsedPlayer.nickname, responseTimeInMillis,
+                        if (this.ifSave(parsedPlayer.nickname)) {
+                            this.measurementService.addMeasurementResponse(parsedPlayer.nickname,
+                                new Date().getTime() - playerToUpdate.data.requestTimestamp,
                                 Math.ceil((playerToUpdate.data.requestTimestamp - this.requestCache.timeForStartCommunication) / 1000),
                                 parsedPlayer.version, playerToUpdate.data.contentLength, playerToUpdate.data.requestTimestamp);
                         }
@@ -174,10 +170,9 @@ export class RsocketService extends Communicator {
                     onNext: playerToUpdate => {
                         const parsedPlayer: Player = playerToUpdate.data;
 
-                        if (parsedPlayer.nickname.match('local*') || parsedPlayer.nickname === this.myNickname) {
-                            const responseTimeInMillis = new Date().getTime() - playerToUpdate.data.requestTimestamp;
-
-                            this.measurementService.addMeasurementResponse(parsedPlayer.nickname, responseTimeInMillis,
+                        if (this.ifSave(parsedPlayer.nickname)) {
+                            this.measurementService.addMeasurementResponse(parsedPlayer.nickname,
+                                new Date().getTime() - playerToUpdate.data.requestTimestamp,
                                 Math.ceil((playerToUpdate.data.requestTimestamp - this.requestCache.timeForStartCommunication) / 1000),
                                 parsedPlayer.version, playerToUpdate.data.contentLength, playerToUpdate.data.requestTimestamp);
                         }
@@ -268,7 +263,6 @@ export class RsocketService extends Communicator {
         this.rsocketObject.fireAndForget({
             data: encodedData,
             metadata: String.fromCharCode('sendPosition'.length) + 'sendPosition'
-
         });
     }
 
@@ -297,5 +291,9 @@ export class RsocketService extends Communicator {
 
     setFormatter(formatter) {
         this.formatter = formatter;
+    }
+
+    ifSave(nickname): boolean {
+        return (nickname.match('local*') || nickname === this.myNickname)
     }
 }

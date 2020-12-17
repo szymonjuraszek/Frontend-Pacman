@@ -4,29 +4,21 @@ import {MeasurementService} from "../../cache/measurement.service";
 import {Communicator} from "../Communicator";
 import {SocketClientState} from "../SocketClientState";
 import {RequestCacheService} from "../../cache/request-cache.service";
-import {Client} from '@stomp/stompjs';
-import {PlayerProto} from "../../../../proto/generated/proto/player_pb";
-import {Player} from "../../model/Player";
-import {IFormatter} from "../format/IFormatter";
+import {Client, IMessage} from '@stomp/stompjs';
 import {JsonFormatter} from "../format/JsonFormatter";
 import {ProtobufFormatter} from "../format/ProtobufFormatter";
-import {CustomBinaryFormatter} from "../format/CustomBinaryFormatter";
-import {FORMATTER_WEBSOCKET, WEBSOCKET_URL_MAIN} from "../../../../global-config";
 
 @Injectable()
 export class WebsocketService extends Communicator {
     // stomp websocket object
     private stompClient: Client;
-
-    // data formatter
-    private formatter: IFormatter;
+    private playersOnTheSameSystemTime = 'local*'
 
     constructor(
         private measurementService: MeasurementService,
         private requestCache: RequestCacheService,
     ) {
-        super(WEBSOCKET_URL_MAIN);
-        this.setFormatter(FORMATTER_WEBSOCKET);
+        super();
     }
 
     initializeConnection() {
@@ -34,12 +26,8 @@ export class WebsocketService extends Communicator {
 
         this.stompClient = new Client({
             brokerURL: this.serverUrl,
-            // debug: function (str) {
-            //     console.log(str);
-            // },
-            // maxWebSocketChunkSize: 5000,
             splitLargeFrames: true,
-            reconnectDelay: 1000,
+            reconnectDelay: 3000,
             heartbeatIncoming: 4000,
             heartbeatOutgoing: 4000
         });
@@ -59,16 +47,15 @@ export class WebsocketService extends Communicator {
                 console.error('Zaktualizowano gre, usunieto gracza');
             });
 
-            this.stompClient.subscribe('/pacman/update/player', (playerToUpdate) => {
+            this.stompClient.subscribe('/pacman/update/player', (playerToUpdate: IMessage) => {
                 const parsedPlayer = this.formatter.decodePlayer(playerToUpdate);
 
-                if (parsedPlayer.nickname.match('local*') || parsedPlayer.nickname === this.myNickname) {
-                    const responseTimeInMillis = new Date().getTime() - Number(playerToUpdate.headers.requestTimestamp);
-
-                    this.measurementService.addMeasurementResponse(parsedPlayer.nickname, responseTimeInMillis,
-                        Math.ceil((Number(playerToUpdate.headers.requestTimestamp) - this.requestCache.timeForStartCommunication) / 1000),
-                        parsedPlayer.version, Number(playerToUpdate.headers['content-length']), Number(playerToUpdate.headers.requestTimestamp));
-                }
+                this.saveMeasurement(
+                    parsedPlayer.nickname,
+                    parsedPlayer.version,
+                    playerToUpdate.headers.requestTimestamp,
+                    playerToUpdate.headers['content-length']
+                );
 
                 if (parsedPlayer.nickname === this.myNickname) {
                     const request = this.requestCache.getRequest(parsedPlayer.version);
@@ -100,16 +87,16 @@ export class WebsocketService extends Communicator {
                 this.ifJoinGame.next(JSON.parse(currentCoinPosition.body));
             });
 
-            this.stompClient.subscribe('/user/queue/player', (playerToUpdate) => {
+            this.stompClient.subscribe('/user/queue/correct/player', (playerToUpdate: IMessage) => {
                 const parsedPlayer = this.formatter.decodePlayer(playerToUpdate);
+                console.error(parsedPlayer)
 
-                if (parsedPlayer.nickname.match('local*') || parsedPlayer.nickname === this.myNickname) {
-                    const responseTimeInMillis = new Date().getTime() - Number(playerToUpdate.headers.requestTimestamp);
-
-                    this.measurementService.addMeasurementResponse(parsedPlayer.nickname, responseTimeInMillis,
-                        Math.ceil((Number(playerToUpdate.headers.requestTimestamp) - this.requestCache.timeForStartCommunication) / 1000),
-                        parsedPlayer.version, Number(playerToUpdate.headers['content-length']), Number(playerToUpdate.headers.requestTimestamp));
-                }
+                this.saveMeasurement(
+                    parsedPlayer.nickname,
+                    parsedPlayer.version,
+                    playerToUpdate.headers.requestTimestamp,
+                    playerToUpdate.headers['content-length']
+                );
 
                 const request = this.requestCache.getCorrectedPosition(parsedPlayer.version);
 
@@ -149,6 +136,23 @@ export class WebsocketService extends Communicator {
 
     disconnect() {
         this.stompClient.deactivate();
+    }
+
+    saveMeasurement(
+        nickname: string,
+        version: number,
+        requestTimestampHeader: string,
+        contentLengthHeader: string
+    ) {
+        if (nickname.match(this.playersOnTheSameSystemTime) || nickname === this.myNickname) {
+            const responseTimeInMillis = new Date().getTime() - Number(requestTimestampHeader);
+
+            this.measurementService.addMeasurementResponse(
+                nickname, responseTimeInMillis,
+                Math.ceil((Number(requestTimestampHeader) - this.requestCache.timeForStartCommunication) / 1000),
+                version, Number(contentLengthHeader), Number(requestTimestampHeader)
+            );
+        }
     }
 
     sendPosition(dataToSend) {

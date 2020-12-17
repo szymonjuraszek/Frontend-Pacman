@@ -1,5 +1,18 @@
+#container {
+    display: flex;
+}
+
 #background {
     text-align: center;
+    flex-basis: 100rem;
+}
+
+#settings {
+    flex-basis: 15rem;
+}
+
+h4 {
+    color: red;
 }
 
 h4 {

@@ -45,11 +45,19 @@
                 }
               ]
             },
-            "websocket": {
+            "websocket-json": {
               "fileReplacements": [
                 {
                   "replace": "src/environments/environment.ts",
-                  "with": "src/environments/environment.websocket.ts"
+                  "with": "src/environments/environment.websocket-json.ts"
+                }
+              ]
+            },
+            "websocket-protobuf": {
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.websocket-protobuf.ts"
                 }
               ]
             }
@@ -64,8 +72,11 @@
             "production": {
               "browserTarget": "untitled:build:production"
             },
-            "websocket": {
-              "browserTarget": "untitled:build:websocket"
+            "websocket-protobuf": {
+              "browserTarget": "untitled:build:websocket-protobuf"
+            },
+            "websocket-json": {
+              "browserTarget": "untitled:build:websocket-json"
             },
             "http2": {
               "browserTarget": "untitled:build:http2"

@@ -7,7 +7,6 @@ import {HttpClient, HttpHeaders, HttpResponse} from "@angular/common/http";
 import {Coin} from "../../model/Coin";
 import {Player} from "../../model/Player";
 import {RequestCacheService} from "../../cache/request-cache.service";
-import {HTTP_URL_MAIN} from "../../../../global-config";
 
 @Injectable({
     providedIn: 'root'
@@ -17,7 +16,7 @@ export class Http2Service extends Communicator {
     private nickname: string;
 
     constructor(private measurementService: MeasurementService, private http: HttpClient, private requestCache: RequestCacheService) {
-        super(HTTP_URL_MAIN);
+        super();
     }
 
     initializeConnection() {
@@ -65,7 +64,7 @@ export class Http2Service extends Communicator {
                     });
                     this.eventSource.addEventListener('/pacman/update/player', (playerToUpdateEvent: MessageEvent) => {
                         const playersWithMeasurementInfo = JSON.parse(playerToUpdateEvent.data)
-                        if (playersWithMeasurementInfo.player.nickname.match('first*') || playersWithMeasurementInfo.player.nickname === this.myNickname) {
+                        if (playersWithMeasurementInfo.player.nickname.match('local*') || playersWithMeasurementInfo.player.nickname === this.myNickname) {
                             this.saveResponseTime(playersWithMeasurementInfo.player.nickname,
                                 playersWithMeasurementInfo.requestTimestamp,
                                 playersWithMeasurementInfo.player.version,
@@ -97,7 +96,6 @@ export class Http2Service extends Communicator {
     }
 
     sendPosition(data) {
-        console.error(data)
         this.http.put(this.serverUrl + "/player", JSON.stringify(data), {
             headers: {
                 'Content-Type': 'application/json',
@@ -105,10 +103,12 @@ export class Http2Service extends Communicator {
             },
             observe: 'response'
         }).subscribe((player: HttpResponse<Player>) => {
-            if (player.body.nickname.match('first*') || player.body.nickname === this.myNickname) {
+            const responseTimeInMillis = new Date().getTime() - Number(player.headers.get('requestTimestamp'));
+            console.error("Odpowiedz serwera " + responseTimeInMillis + " milliseconds");
+            if (player.body.nickname.match('local*') || player.body.nickname === this.myNickname) {
                 this.saveResponseTime(player.body.nickname,
                     Number(player.headers.get('requestTimestamp')),
-                    player.body.version, Number(player.headers.get('content-length')));
+                    player.body.version, Number(player.headers.get('contentLength')));
             }
 
             if (player.status === 202) {

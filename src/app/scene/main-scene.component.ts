@@ -12,7 +12,6 @@ import {RequestCacheService} from "../cache/request-cache.service";
 import {Request} from "../model/Request";
 import {AdditionalData} from "../communication/simulation/data/AdditionalData";
 import {environment} from "../../environments/environment";
-import {SENDING_MESSAGE_FREQUENCY, SIZE_OF_ADDITIONAL_DATA} from "../../../global-config";
 
 @Component({
     selector: 'app-main-scene',
@@ -30,8 +29,11 @@ import {SENDING_MESSAGE_FREQUENCY, SIZE_OF_ADDITIONAL_DATA} from "../../../globa
 })
 export class MainSceneComponent extends Phaser.Scene {
     // Additional data for testing changing data size
-    private additionalData = this.randomString(50, '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
-    private arrayWithAdditionalData: Array<AdditionalData> = new Array<AdditionalData>(SIZE_OF_ADDITIONAL_DATA);
+    private readonly arrayWithAdditionalData: Array<AdditionalData>;
+    private numberOfAdditionalObjectsPerSecond;
+
+    // Sending message frequency
+    private readonly SENDING_SPEED: number;
 
     // Phaser 3 objects
     private board: Phaser.Tilemaps.Tilemap;
@@ -95,7 +97,14 @@ export class MainSceneComponent extends Phaser.Scene {
 
         if (this.router.getCurrentNavigation().extras.state) {
             this.myPlayerName = this.router.getCurrentNavigation().extras.state.nick;
+            this.SENDING_SPEED = this.router.getCurrentNavigation().extras.state.speed;
             this.websocketService.myNickname = this.myPlayerName;
+            this.websocketService.serverUrl = this.router.getCurrentNavigation().extras.state.serverUrl;
+            this.websocketService.formatter = this.router.getCurrentNavigation().extras.state.formatter;
+            this.numberOfAdditionalObjectsPerSecond =  Number(this.router.getCurrentNavigation().extras.state.additionalObjects);
+            this.arrayWithAdditionalData = new Array<AdditionalData>(
+                Number(this.router.getCurrentNavigation().extras.state.additionalObjects)
+            );
         } else {
             this.router.navigate(['home']);
         }
@@ -104,9 +113,10 @@ export class MainSceneComponent extends Phaser.Scene {
     startGame() {
         this.websocketService.initializeConnection();
 
-        for (let i = 0; i < this.arrayWithAdditionalData.length; i++) {
-            this.arrayWithAdditionalData[i] = new AdditionalData(11111, 22222, 33333, this.additionalData);
-        }
+        // for (let i = 0; i < this.arrayWithAdditionalData.length; i++) {
+        //     this.arrayWithAdditionalData[i] = new AdditionalData(this.getRandomInt(20000, 99999), this.getRandomInt(20000, 99999), this.getRandomInt(20000, 99999),
+        //         this.randomString(20, '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'));
+        // }
 
         this.stateSubscription = this.websocketService.getState().subscribe(state => {
             if (state === SocketClientState.CONNECTED) {
@@ -308,7 +318,7 @@ export class MainSceneComponent extends Phaser.Scene {
 
             if (currentPlayer) {
                 this.changeAnimationFrameForOtherPlayers(player, currentPlayer);
-                if (currentPlayer.version < player.version) {
+                if (currentPlayer.version <= player.version) {
                     currentPlayer.x = player.positionX;
                     currentPlayer.y = player.positionY;
                     currentPlayer.score = player.score;
@@ -324,7 +334,16 @@ export class MainSceneComponent extends Phaser.Scene {
         // this.lastY = player.y;
         // this.lastAngle = player.angle;
 
-        this.positionSender = interval(SENDING_MESSAGE_FREQUENCY);
+        const supplier = interval(1000);
+        supplier.subscribe(() => {
+            for (let i = 0; i < this.numberOfAdditionalObjectsPerSecond; i++) {
+                this.arrayWithAdditionalData.push(new AdditionalData(this.getRandomInt(20000,99999),this.getRandomInt(20000,99999),this.getRandomInt(20000,99999),
+                    this.randomString(20, '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')));
+            }
+        });
+
+
+        this.positionSender = interval(this.SENDING_SPEED);
         this.positionSenderSubscription = this.positionSender.subscribe(() => {
             const player: Player = this.players.get(this.myPlayerName);
             // if ((this.lastX !== player.x) ||
@@ -343,8 +362,8 @@ export class MainSceneComponent extends Phaser.Scene {
                 "positionY": player.y,
                 "score": player.score,
                 "stepDirection": this.getDirection(),
-                "version": this.counterRequest
-                // "additionalData": this.arrayWithAdditionalData
+                "version": this.counterRequest,
+                "additionalData": this.arrayWithAdditionalData
             });
             // }
         });
@@ -356,6 +375,12 @@ export class MainSceneComponent extends Phaser.Scene {
             result += chars[Math.floor(Math.random() * chars.length)];
         }
         return result;
+    }
+
+    getRandomInt(min, max) {
+        min = Math.ceil(min);
+        max = Math.floor(max);
+        return Math.floor(Math.random() * (max - min)) + min;
     }
 
     setScoreText(number, player) {

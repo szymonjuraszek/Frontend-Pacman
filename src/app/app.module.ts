@@ -14,6 +14,8 @@ import {HomeComponent} from './home/home.component';
 // @ts-ignore
 import {FormsModule} from "@angular/forms";
 
+import {MatRadioModule} from '@angular/material/radio';
+
 // @ts-ignore
 @NgModule({
     declarations: [
@@ -26,7 +28,8 @@ import {FormsModule} from "@angular/forms";
         BrowserModule,
         HttpClientModule,
         AppRoutingModule,
-        FormsModule
+        FormsModule,
+        MatRadioModule
     ],
     providers: [WebsocketService],
     bootstrap: [AppComponent]
